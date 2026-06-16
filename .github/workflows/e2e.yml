@@ -1,0 +1,64 @@
+name: E2E Selenium Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  selenium-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
+      - name: Install matching ChromeDriver
+        run: |
+          CHROME_VERSION=$(google-chrome --version | grep -o '[0-9]\+')
+          LATEST_DRIVER=$(curl -sSL https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION)
+          curl -O https://chromedriver.storage.googleapis.com/${LATEST_DRIVER}/chromedriver_linux64.zip
+          unzip chromedriver_linux64.zip
+          sudo mv chromedriver /usr/local/bin/
+          sudo chmod +x /usr/local/bin/chromedriver
+
+      - name: Build Flutter web
+        run: flutter build web --release
+
+      - name: Serve the web build
+        run: |
+          cd build/web
+          python -m http.server 8000 &
+          SERVER_PID=$!
+          echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+          sleep 5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r ../requirements.txt
+
+      - name: Run Selenium tests
+        env:
+          SERVER_URL: http://localhost:8000
+        run: |
+          python ../e2e/test_login_flow.py
+
+      - name: Stop web server
+        if: always()
+        run: |
+          kill $SERVER_PID
