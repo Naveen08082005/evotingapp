@@ -40,10 +40,19 @@ jobs:
 
       - name: Run Selenium tests
         run: |
-          python e2e/test_login_flow.py
+          pytest e2e/test_login_flow.py --html=report.html --self-contained-html
+
+      - name: Upload Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selenium-e2e-report
+          path: report.html
+          retention-days: 30
 
       - name: Stop web server
         if: always()
         run: |
           kill $SERVER_PID
+
 
