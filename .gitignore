@@ -1,0 +1,37 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+.pub/
+.buildlog
+.flutter-plugins
+.flutter-plugins-dependencies
+.build/
+.idea/
+.vscode/
+# Build
+build/
+# Generated files
+*.g.dart
+*.freezed.dart
+# iOS
+ios/Pods/
+ios/.symlinks/
+# Android
+android/.gradle/
+android/app/build/
+# Web
+web/.dart_tool/
+# Misc
+flutter_*.png
+*.log
+*.tmp
+*.swp
+# Secrets
+.env
+*.key
+*.pem
+# Artifacts
+*.apk
+*.ipa
+# VS Code
+.settings/

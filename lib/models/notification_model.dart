@@ -1,0 +1,81 @@
+class NotificationModel {
+  final String id;
+  final String title;
+  final String message;
+  final String? userId;
+  final bool isRead;
+  final DateTime createdAt;
+
+  NotificationModel({
+    required this.id,
+    required this.title,
+    required this.message,
+    this.userId,
+    required this.isRead,
+    required this.createdAt,
+  });
+
+  factory NotificationModel.fromJson(Map<String, dynamic> json) {
+    return NotificationModel(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      message: json['message'] as String,
+      userId: json['user_id'] as String?,
+      isRead: json['is_read'] as bool? ?? false,
+      createdAt: DateTime.parse(json['created_at'] as String),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'message': message,
+      'user_id': userId,
+      'is_read': isRead,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
+  NotificationModel copyWith({
+    String? id,
+    String? title,
+    String? message,
+    String? userId,
+    bool? isRead,
+    DateTime? createdAt,
+  }) {
+    return NotificationModel(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      message: message ?? this.message,
+      userId: userId ?? this.userId,
+      isRead: isRead ?? this.isRead,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is NotificationModel &&
+        other.id == id &&
+        other.title == title &&
+        other.message == message &&
+        other.userId == userId &&
+        other.isRead == isRead &&
+        other.createdAt == createdAt;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(
+      id,
+      title,
+      message,
+      userId,
+      isRead,
+      createdAt,
+    );
+  }
+}
