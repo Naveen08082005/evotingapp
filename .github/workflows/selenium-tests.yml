@@ -1,4 +1,4 @@
-name: Functional Test Suite
+name: Selenium Web Testing
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  functional-testing:
-    name: Run Functional E2E Tests
+  selenium-testing:
+    name: Run Selenium E2E Web Tests
     runs-on: ubuntu-latest
     
     steps:
@@ -50,7 +50,7 @@ jobs:
 
       - name: Run Functional Selenium Test cases
         run: |
-          pytest e2e/test_login_flow.py --html=functional_report.html --self-contained-html
+          pytest e2e/test_login_flow.py --html=report.html --self-contained-html
 
       - name: Stop Local Server
         if: always()
@@ -59,10 +59,12 @@ jobs:
             kill $SERVER_PID
           fi
 
-      - name: Upload Functional Test Report Artifact
+      - name: Upload Selenium Reports Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: functional-test-report
-          path: functional_report.html
+          name: selenium-reports
+          path: |
+            testing_reports/selenium/
+            report.html
           retention-days: 14
