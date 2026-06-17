@@ -37,9 +37,10 @@ $$;
 CREATE POLICY "admins_select_own" ON public.admins
     FOR SELECT USING (id = auth.uid());
 
--- Only service role can insert admins (setup via SQL editor)
+-- Only the Supabase service role can insert admins (via SQL editor or migrations).
+-- Existing admins CANNOT create new admin rows — prevents privilege escalation.
 CREATE POLICY "admins_insert_service" ON public.admins
-    FOR INSERT WITH CHECK (public.is_admin());
+    FOR INSERT WITH CHECK (false);
 
 -- ============================================================
 -- POLICIES: users table
@@ -165,10 +166,12 @@ ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "notifications_select_admin" ON public.notifications
     FOR SELECT USING (public.is_admin());
 
--- Students can select their own notifications OR global notifications (user_id IS NULL)
+-- Students can select their own notifications OR explicitly marked global notifications.
+-- Uses is_global column instead of NULL user_id to prevent accidental exposure.
+-- NOTE: Add column first: ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS is_global BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE POLICY "notifications_select_user" ON public.notifications
     FOR SELECT USING (
-        user_id = auth.uid() OR user_id IS NULL
+        user_id = auth.uid() OR is_global = TRUE
     );
 
 -- Only admins can insert notifications

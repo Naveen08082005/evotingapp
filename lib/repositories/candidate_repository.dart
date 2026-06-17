@@ -8,7 +8,7 @@ import '../core/utils/demo_store.dart';
 class CandidateRepository {
   final _client = SupabaseService.client;
 
-  // ─── Get all candidates ────────────────────────────────────────────────────
+  // ── Get all candidates ─────────────────────────────────────────────────────
   Future<List<CandidateModel>> getAllCandidates() async {
     if (AuthController.isDemoMode) {
       return DemoStore.candidates;
@@ -24,10 +24,12 @@ class CandidateRepository {
     }
   }
 
-  // ─── Get approved candidates ───────────────────────────────────────────────
+  // ── Get approved candidates ────────────────────────────────────────────────
   Future<List<CandidateModel>> getApprovedCandidates() async {
     if (AuthController.isDemoMode) {
-      return DemoStore.candidates.where((c) => c.status == 'approved').toList();
+      return DemoStore.candidates
+          .where((c) => c.status == 'approved')
+          .toList();
     }
     try {
       final response = await _client
@@ -41,7 +43,7 @@ class CandidateRepository {
     }
   }
 
-  // ─── Get candidate by ID ───────────────────────────────────────────────────
+  // ── Get candidate by ID ────────────────────────────────────────────────────
   Future<CandidateModel?> getCandidateById(String id) async {
     if (AuthController.isDemoMode) {
       final matches = DemoStore.candidates.where((c) => c.id == id);
@@ -60,7 +62,7 @@ class CandidateRepository {
     }
   }
 
-  // ─── Add candidate ─────────────────────────────────────────────────────────
+  // ── Add candidate ──────────────────────────────────────────────────────────
   Future<CandidateModel> addCandidate(Map<String, dynamic> data) async {
     if (AuthController.isDemoMode) {
       final newCandidate = CandidateModel(
@@ -92,8 +94,9 @@ class CandidateRepository {
     }
   }
 
-  // ─── Update candidate ──────────────────────────────────────────────────────
-  Future<CandidateModel> updateCandidate(String id, Map<String, dynamic> data) async {
+  // ── Update candidate ───────────────────────────────────────────────────────
+  Future<CandidateModel> updateCandidate(
+      String id, Map<String, dynamic> data) async {
     if (AuthController.isDemoMode) {
       final index = DemoStore.candidates.indexWhere((c) => c.id == id);
       if (index != -1) {
@@ -127,7 +130,7 @@ class CandidateRepository {
     }
   }
 
-  // ─── Delete candidate ──────────────────────────────────────────────────────
+  // ── Delete candidate ───────────────────────────────────────────────────────
   Future<void> deleteCandidate(String id) async {
     if (AuthController.isDemoMode) {
       DemoStore.candidates.removeWhere((c) => c.id == id);
@@ -143,8 +146,14 @@ class CandidateRepository {
     }
   }
 
-  // ─── Update status ─────────────────────────────────────────────────────────
+  // ── Update status ──────────────────────────────────────────────────────────
   Future<void> updateCandidateStatus(String id, String status) async {
+    // Validate against allowed status values
+    const allowed = {'pending', 'approved', 'rejected'};
+    if (!allowed.contains(status)) {
+      throw const ValidationException('Invalid candidate status value.');
+    }
+
     if (AuthController.isDemoMode) {
       final index = DemoStore.candidates.indexWhere((c) => c.id == id);
       if (index != -1) {
@@ -158,17 +167,21 @@ class CandidateRepository {
     try {
       await _client
           .from(SupabaseConstants.candidatesTable)
-          .update({'status': status, 'updated_at': DateTime.now().toIso8601String()})
+          .update({
+            'status': status,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
           .eq('id', id);
     } catch (e) {
       throw DatabaseException(parseSupabaseError(e));
     }
   }
 
-  // ─── Increment vote count ──────────────────────────────────────────────────
+  // ── Increment vote count ───────────────────────────────────────────────────
   Future<void> incrementVoteCount(String candidateId) async {
     if (AuthController.isDemoMode) {
-      final index = DemoStore.candidates.indexWhere((c) => c.id == candidateId);
+      final index =
+          DemoStore.candidates.indexWhere((c) => c.id == candidateId);
       if (index != -1) {
         DemoStore.candidates[index] = DemoStore.candidates[index].copyWith(
           voteCount: DemoStore.candidates[index].voteCount + 1,
@@ -178,46 +191,62 @@ class CandidateRepository {
       return;
     }
     try {
-      await _client.rpc('increment_vote_count', params: {'candidate_id': candidateId});
+      await _client
+          .rpc('increment_vote_count', params: {'candidate_id': candidateId});
     } catch (e) {
       throw DatabaseException(parseSupabaseError(e));
     }
   }
 
-  // ─── Search candidates ─────────────────────────────────────────────────────
+  // ── Search candidates ──────────────────────────────────────────────────────
+  /// Uses a server-side RPC function for safe parameterized search to prevent
+  /// query injection via user-supplied input.
   Future<List<CandidateModel>> searchCandidates(String query) async {
+    // Sanitize: trim and limit length
+    final sanitized = query.trim();
+    if (sanitized.isEmpty) return getAllCandidates();
+    if (sanitized.length > 100) {
+      throw const ValidationException('Search query is too long.');
+    }
+
     if (AuthController.isDemoMode) {
-      return DemoStore.candidates.where((c) =>
-        c.name.toLowerCase().contains(query.toLowerCase()) ||
-        c.position.toLowerCase().contains(query.toLowerCase()) ||
-        c.department.toLowerCase().contains(query.toLowerCase())
-      ).toList();
+      return DemoStore.candidates
+          .where((c) =>
+              c.name.toLowerCase().contains(sanitized.toLowerCase()) ||
+              c.position.toLowerCase().contains(sanitized.toLowerCase()) ||
+              c.department.toLowerCase().contains(sanitized.toLowerCase()))
+          .toList();
     }
     try {
-      final response = await _client
-          .from(SupabaseConstants.candidatesTable)
-          .select()
-          .or('name.ilike.%$query%,position.ilike.%$query%,department.ilike.%$query%')
-          .order('name');
+      // Use RPC with named parameter to avoid direct string interpolation
+      final response = await _client.rpc(
+        'search_candidates',
+        params: {'search_query': sanitized},
+      );
       return (response as List).map((e) => CandidateModel.fromJson(e)).toList();
     } catch (e) {
       throw DatabaseException(parseSupabaseError(e));
     }
   }
 
-  // ─── Reset vote counts ─────────────────────────────────────────────────────
+  // ── Reset vote counts ──────────────────────────────────────────────────────
   Future<void> resetAllVoteCounts() async {
     if (AuthController.isDemoMode) {
       for (int i = 0; i < DemoStore.candidates.length; i++) {
-        DemoStore.candidates[i] = DemoStore.candidates[i].copyWith(voteCount: 0);
+        DemoStore.candidates[i] =
+            DemoStore.candidates[i].copyWith(voteCount: 0);
       }
       return;
     }
     try {
+      // Reset all candidate vote counts without magic UUID exclusion
       await _client
           .from(SupabaseConstants.candidatesTable)
-          .update({'vote_count': 0, 'updated_at': DateTime.now().toIso8601String()})
-          .neq('id', '00000000-0000-0000-0000-000000000000');
+          .update({
+            'vote_count': 0,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .gt('vote_count', -1); // Affects all rows
     } catch (e) {
       throw DatabaseException(parseSupabaseError(e));
     }

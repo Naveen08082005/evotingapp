@@ -178,39 +178,6 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 40),
-                    // Admin hint box
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppColors.primary.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline_rounded,
-                            color: AppColors.primary,
-                            size: 20,
-                          ),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Demo Credentials for testing:\n• Admin: admin@college.edu | admin123\n• Student: student@college.edu | student123',
-                              style: TextStyle(
-                                color: AppColors.primary,
-                                fontSize: 13,
-                                fontFamily: 'Poppins',
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                     const SizedBox(height: 24),
                   ],
                 ),

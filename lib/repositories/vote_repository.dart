@@ -8,14 +8,20 @@ import '../core/utils/demo_store.dart';
 class VoteRepository {
   final _client = SupabaseService.client;
 
-  // ─── Cast a vote ───────────────────────────────────────────────────────────
+  // ── Cast a vote ─────────────────────────────────────────────────────────────
+  /// The UNIQUE constraint on (user_id, election_id) in the database is the
+  /// authoritative guard against duplicate votes. The RLS policy additionally
+  /// requires is_verified = TRUE and election status = 'active'.
+  /// We rely on the DB constraint rather than a separate SELECT check to avoid
+  /// race conditions between the check and the insert.
   Future<VoteModel> castVote({
     required String userId,
     required String candidateId,
     required String electionId,
   }) async {
     if (AuthController.isDemoMode) {
-      final hasVoted = DemoStore.votes.any((v) => v.userId == userId && v.electionId == electionId);
+      final hasVoted = DemoStore.votes
+          .any((v) => v.userId == userId && v.electionId == electionId);
       if (hasVoted) {
         throw const ValidationException('You have already voted in this election.');
       }
@@ -30,18 +36,8 @@ class VoteRepository {
       return vote;
     }
     try {
-      // Check if user already voted (double-safety check)
-      final existing = await _client
-          .from(SupabaseConstants.votesTable)
-          .select('id')
-          .eq('user_id', userId)
-          .eq('election_id', electionId)
-          .maybeSingle();
-
-      if (existing != null) {
-        throw const ValidationException('You have already voted in this election.');
-      }
-
+      // Single atomic INSERT — the DB UNIQUE constraint on (user_id, election_id)
+      // will reject duplicates and the RLS policy enforces verified + active election.
       final data = {
         'user_id': userId,
         'candidate_id': candidateId,
@@ -59,14 +55,21 @@ class VoteRepository {
     } on ValidationException {
       rethrow;
     } catch (e) {
-      throw DatabaseException(parseSupabaseError(e));
+      final parsed = parseSupabaseError(e);
+      // Surface duplicate-vote constraint as a friendly message
+      if (parsed.contains('already exists') ||
+          e.toString().toLowerCase().contains('unique')) {
+        throw const ValidationException('You have already voted in this election.');
+      }
+      throw DatabaseException(parsed);
     }
   }
 
-  // ─── Check if user has voted ───────────────────────────────────────────────
+  // ── Check if user has voted ─────────────────────────────────────────────────
   Future<bool> hasUserVoted(String userId, String electionId) async {
     if (AuthController.isDemoMode) {
-      return DemoStore.votes.any((v) => v.userId == userId && v.electionId == electionId);
+      return DemoStore.votes
+          .any((v) => v.userId == userId && v.electionId == electionId);
     }
     try {
       final response = await _client
@@ -81,7 +84,7 @@ class VoteRepository {
     }
   }
 
-  // ─── Get total votes ───────────────────────────────────────────────────────
+  // ── Get total votes ─────────────────────────────────────────────────────────
   Future<int> getTotalVotes(String electionId) async {
     if (AuthController.isDemoMode) {
       return DemoStore.votes.where((v) => v.electionId == electionId).length;
@@ -97,11 +100,12 @@ class VoteRepository {
     }
   }
 
-  // ─── Get votes by candidate ────────────────────────────────────────────────
+  // ── Get votes by candidate ──────────────────────────────────────────────────
   Future<Map<String, int>> getVotesByCandidate(String electionId) async {
     if (AuthController.isDemoMode) {
       final Map<String, int> voteCounts = {};
-      for (final v in DemoStore.votes.where((v) => v.electionId == electionId)) {
+      for (final v
+          in DemoStore.votes.where((v) => v.electionId == electionId)) {
         voteCounts[v.candidateId] = (voteCounts[v.candidateId] ?? 0) + 1;
       }
       return voteCounts;
@@ -114,8 +118,10 @@ class VoteRepository {
 
       final Map<String, int> voteCounts = {};
       for (final row in (response as List)) {
-        final candidateId = row['candidate_id'] as String;
-        voteCounts[candidateId] = (voteCounts[candidateId] ?? 0) + 1;
+        final candidateId = row['candidate_id'] as String?;
+        if (candidateId != null) {
+          voteCounts[candidateId] = (voteCounts[candidateId] ?? 0) + 1;
+        }
       }
       return voteCounts;
     } catch (e) {
@@ -123,7 +129,7 @@ class VoteRepository {
     }
   }
 
-  // ─── Delete all votes (reset election) ────────────────────────────────────
+  // ── Delete all votes (admin reset) ─────────────────────────────────────────
   Future<void> deleteAllVotes(String electionId) async {
     if (AuthController.isDemoMode) {
       DemoStore.votes.removeWhere((v) => v.electionId == electionId);
@@ -139,11 +145,14 @@ class VoteRepository {
     }
   }
 
-  // ─── Get recent votes ─────────────────────────────────────────────────────
-  Future<List<VoteModel>> getRecentVotes(String electionId, {int limit = 10}) async {
+  // ── Get recent votes ────────────────────────────────────────────────────────
+  Future<List<VoteModel>> getRecentVotes(String electionId,
+      {int limit = 10}) async {
     if (AuthController.isDemoMode) {
-      final list = DemoStore.votes.where((v) => v.electionId == electionId).toList();
-      list.sort((a, b) => b.votedAt.compareTo(a.votedAt));
+      final list = DemoStore.votes
+          .where((v) => v.electionId == electionId)
+          .toList()
+        ..sort((a, b) => b.votedAt.compareTo(a.votedAt));
       return list.take(limit).toList();
     }
     try {
@@ -159,13 +168,19 @@ class VoteRepository {
     }
   }
 
-  // ─── Get user voting history with details ──────────────────────────────────
-  Future<List<Map<String, dynamic>>> getUserVotingHistory(String userId) async {
+  // ── Get user voting history with details ────────────────────────────────────
+  Future<List<Map<String, dynamic>>> getUserVotingHistory(
+      String userId) async {
     if (AuthController.isDemoMode) {
-      final list = DemoStore.votes.where((v) => v.userId == userId).toList();
-      list.sort((a, b) => b.votedAt.compareTo(a.votedAt));
+      final list = DemoStore.votes
+          .where((v) => v.userId == userId)
+          .toList()
+        ..sort((a, b) => b.votedAt.compareTo(a.votedAt));
       return list.map((v) {
-        final cand = DemoStore.candidates.firstWhere((c) => c.id == v.candidateId, orElse: () => DemoStore.candidates[0]);
+        final cand = DemoStore.candidates.firstWhere(
+          (c) => c.id == v.candidateId,
+          orElse: () => DemoStore.candidates[0],
+        );
         final elec = DemoStore.currentElection;
         return {
           'id': v.id,

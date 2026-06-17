@@ -8,7 +8,25 @@ import '../core/utils/demo_store.dart';
 class UserRepository {
   final _client = SupabaseService.client;
 
-  // ─── Create user profile after signup ─────────────────────────────────────
+  // ── Allowed fields for admin user updates ──────────────────────────────────
+  /// Explicitly whitelisted fields an admin may update.
+  /// This prevents arbitrary field injection from the UI layer.
+  static const _adminAllowedUpdateFields = {
+    'is_verified',
+    'updated_at',
+  };
+
+  /// Fields a student may update on their own profile.
+  static const _studentAllowedUpdateFields = {
+    'full_name',
+    'mobile_number',
+    'department',
+    'year',
+    'photo_url',
+    'updated_at',
+  };
+
+  // ── Create user profile after signup ───────────────────────────────────────
   Future<UserModel> createUser(UserModel user) async {
     if (AuthController.isDemoMode) {
       final index = DemoStore.users.indexWhere((u) => u.id == user.id);
@@ -44,7 +62,7 @@ class UserRepository {
     }
   }
 
-  // ─── Get user by ID ────────────────────────────────────────────────────────
+  // ── Get user by ID ─────────────────────────────────────────────────────────
   Future<UserModel?> getUserById(String userId) async {
     if (AuthController.isDemoMode) {
       final matches = DemoStore.users.where((u) => u.id == userId);
@@ -63,39 +81,43 @@ class UserRepository {
     }
   }
 
-  // ─── Get all users ─────────────────────────────────────────────────────────
-  Future<List<UserModel>> getAllUsers() async {
+  // ── Get all users (paginated) ──────────────────────────────────────────────
+  /// Returns only the fields needed for the admin list view to minimise PII
+  /// in transit. Full profile is fetched individually when needed.
+  Future<List<UserModel>> getAllUsers({int page = 0, int pageSize = 50}) async {
     if (AuthController.isDemoMode) {
       return DemoStore.users.where((u) => u.role == 'student').toList();
     }
     try {
+      final from = page * pageSize;
+      final to = from + pageSize - 1;
       final response = await _client
           .from(SupabaseConstants.usersTable)
-          .select()
+          .select('id, full_name, register_number, department, year, is_verified, has_voted, created_at')
           .eq('role', 'student')
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .range(from, to);
       return (response as List).map((e) => UserModel.fromJson(e)).toList();
     } catch (e) {
       throw DatabaseException(parseSupabaseError(e));
     }
   }
 
-  // ─── Update user ───────────────────────────────────────────────────────────
+  // ── Update user (admin — restricted fields only) ───────────────────────────
   Future<UserModel> updateUser(String userId, Map<String, dynamic> data) async {
+    // Strip any fields not in the admin allowlist
+    final sanitized = Map<String, dynamic>.fromEntries(
+      data.entries.where((e) => _adminAllowedUpdateFields.contains(e.key)),
+    );
+    if (sanitized.isEmpty) {
+      throw const ValidationException('No valid fields provided for update.');
+    }
+
     if (AuthController.isDemoMode) {
       final index = DemoStore.users.indexWhere((u) => u.id == userId);
       if (index != -1) {
         final updated = DemoStore.users[index].copyWith(
-          email: data['email'] as String?,
-          fullName: data['full_name'] as String?,
-          registerNumber: data['register_number'] as String?,
-          mobileNumber: data['mobile_number'] as String?,
-          department: data['department'] as String?,
-          year: data['year'] as String?,
-          photoUrl: data['photo_url'] as String?,
-          role: data['role'] as String?,
-          isVerified: data['is_verified'] as bool?,
-          hasVoted: data['has_voted'] as bool?,
+          isVerified: sanitized['is_verified'] as bool?,
           updatedAt: DateTime.now(),
         );
         DemoStore.users[index] = updated;
@@ -104,10 +126,10 @@ class UserRepository {
       throw Exception('User not found');
     }
     try {
-      data['updated_at'] = DateTime.now().toIso8601String();
+      sanitized['updated_at'] = DateTime.now().toIso8601String();
       final response = await _client
           .from(SupabaseConstants.usersTable)
-          .update(data)
+          .update(sanitized)
           .eq('id', userId)
           .select()
           .single();
@@ -117,7 +139,48 @@ class UserRepository {
     }
   }
 
-  // ─── Mark user as verified ─────────────────────────────────────────────────
+  // ── Update student own profile ─────────────────────────────────────────────
+  Future<UserModel> updateOwnProfile(
+      String userId, Map<String, dynamic> data) async {
+    // Strip any fields not in the student allowlist
+    final sanitized = Map<String, dynamic>.fromEntries(
+      data.entries.where((e) => _studentAllowedUpdateFields.contains(e.key)),
+    );
+    if (sanitized.isEmpty) {
+      throw const ValidationException('No valid fields provided for update.');
+    }
+
+    if (AuthController.isDemoMode) {
+      final index = DemoStore.users.indexWhere((u) => u.id == userId);
+      if (index != -1) {
+        final updated = DemoStore.users[index].copyWith(
+          fullName: sanitized['full_name'] as String?,
+          mobileNumber: sanitized['mobile_number'] as String?,
+          department: sanitized['department'] as String?,
+          year: sanitized['year'] as String?,
+          photoUrl: sanitized['photo_url'] as String?,
+          updatedAt: DateTime.now(),
+        );
+        DemoStore.users[index] = updated;
+        return updated;
+      }
+      throw Exception('User not found');
+    }
+    try {
+      sanitized['updated_at'] = DateTime.now().toIso8601String();
+      final response = await _client
+          .from(SupabaseConstants.usersTable)
+          .update(sanitized)
+          .eq('id', userId)
+          .select()
+          .single();
+      return UserModel.fromJson(response);
+    } catch (e) {
+      throw DatabaseException(parseSupabaseError(e));
+    }
+  }
+
+  // ── Mark user as verified ──────────────────────────────────────────────────
   Future<void> verifyUser(String userId) async {
     if (AuthController.isDemoMode) {
       final index = DemoStore.users.indexWhere((u) => u.id == userId);
@@ -139,7 +202,7 @@ class UserRepository {
     }
   }
 
-  // ─── Mark user as voted ────────────────────────────────────────────────────
+  // ── Mark user as voted ─────────────────────────────────────────────────────
   Future<void> markUserVoted(String userId) async {
     if (AuthController.isDemoMode) {
       final index = DemoStore.users.indexWhere((u) => u.id == userId);
@@ -166,10 +229,12 @@ class UserRepository {
     }
   }
 
-  // ─── Get voted users count ─────────────────────────────────────────────────
+  // ── Get voted users count ──────────────────────────────────────────────────
   Future<int> getVotedUsersCount() async {
     if (AuthController.isDemoMode) {
-      return DemoStore.users.where((u) => u.hasVoted && u.role == 'student').length;
+      return DemoStore.users
+          .where((u) => u.hasVoted && u.role == 'student')
+          .length;
     }
     try {
       final response = await _client
@@ -183,31 +248,41 @@ class UserRepository {
     }
   }
 
-  // ─── Search users ──────────────────────────────────────────────────────────
+  // ── Search users ───────────────────────────────────────────────────────────
+  /// Uses a server-side RPC function for safe parameterized search.
   Future<List<UserModel>> searchUsers(String query) async {
+    final sanitized = query.trim();
+    if (sanitized.isEmpty) return getAllUsers();
+    if (sanitized.length > 100) {
+      throw const ValidationException('Search query is too long.');
+    }
+
     if (AuthController.isDemoMode) {
-      return DemoStore.users.where((u) =>
-        u.role == 'student' && (
-          u.fullName.toLowerCase().contains(query.toLowerCase()) ||
-          u.registerNumber.toLowerCase().contains(query.toLowerCase()) ||
-          u.email.toLowerCase().contains(query.toLowerCase())
-        )
-      ).toList();
+      return DemoStore.users
+          .where((u) =>
+              u.role == 'student' &&
+              (u.fullName.toLowerCase().contains(sanitized.toLowerCase()) ||
+                  u.registerNumber
+                      .toLowerCase()
+                      .contains(sanitized.toLowerCase()) ||
+                  u.email
+                      .toLowerCase()
+                      .contains(sanitized.toLowerCase())))
+          .toList();
     }
     try {
-      final response = await _client
-          .from(SupabaseConstants.usersTable)
-          .select()
-          .eq('role', 'student')
-          .or('full_name.ilike.%$query%,register_number.ilike.%$query%,email.ilike.%$query%')
-          .order('full_name');
+      // Use RPC with named parameter to avoid direct string interpolation
+      final response = await _client.rpc(
+        'search_users',
+        params: {'search_query': sanitized},
+      );
       return (response as List).map((e) => UserModel.fromJson(e)).toList();
     } catch (e) {
       throw DatabaseException(parseSupabaseError(e));
     }
   }
 
-  // ─── Reset all votes ───────────────────────────────────────────────────────
+  // ── Reset all votes ────────────────────────────────────────────────────────
   Future<void> resetAllVotes() async {
     if (AuthController.isDemoMode) {
       for (int i = 0; i < DemoStore.users.length; i++) {
@@ -225,7 +300,12 @@ class UserRepository {
     try {
       await _client
           .from(SupabaseConstants.usersTable)
-          .update({'has_voted': false, 'voted_at': null, 'is_verified': false, 'updated_at': DateTime.now().toIso8601String()})
+          .update({
+            'has_voted': false,
+            'voted_at': null,
+            'is_verified': false,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
           .eq('role', 'student');
     } catch (e) {
       throw DatabaseException(parseSupabaseError(e));

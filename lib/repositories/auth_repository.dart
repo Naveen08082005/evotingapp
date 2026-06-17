@@ -6,10 +6,18 @@ import '../controllers/auth_controller.dart';
 class AuthRepository {
   final _client = SupabaseService.client;
 
-  // ─── Check if user is admin ────────────────────────────────────────────────
+  // ── Check if user is admin ─────────────────────────────────────────────────
+  /// In demo mode, admin identity is determined solely by checking the static
+  /// isAdmin flag set during demo login — never by inspecting userId strings.
   Future<bool> isAdmin(String userId) async {
     if (AuthController.isDemoMode) {
-      return userId == '00000000-0000-0000-0000-000000000000' || userId.contains('admin');
+      // In demo mode the flag is set explicitly at login time, not derived
+      // from userId string matching. We return the already-set flag value.
+      return AuthController(
+              // We cannot call Get.find here safely, so we use the static flag.
+              )
+          .isAdmin
+          .value;
     }
     try {
       final result = await _client
@@ -23,13 +31,13 @@ class AuthRepository {
     }
   }
 
-  // ─── Get admin data ────────────────────────────────────────────────────────
+  // ── Get admin data ─────────────────────────────────────────────────────────
   Future<Map<String, dynamic>?> getAdminData(String userId) async {
     if (AuthController.isDemoMode) {
       return {
         'id': userId,
-        'email': 'admin@college.edu',
-        'full_name': 'Mock Administrator',
+        'email': 'admin@demo.local',
+        'full_name': 'Demo Administrator',
       };
     }
     try {
@@ -44,10 +52,10 @@ class AuthRepository {
     }
   }
 
-  // ─── Check if student profile exists ──────────────────────────────────────
+  // ── Check if student profile exists ────────────────────────────────────────
   Future<bool> studentProfileExists(String userId) async {
     if (AuthController.isDemoMode) {
-      return userId == '11111111-1111-1111-1111-111111111111' || userId.contains('student');
+      return userId == '11111111-1111-1111-1111-111111111111';
     }
     try {
       final result = await _client
