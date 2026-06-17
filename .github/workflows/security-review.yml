@@ -1,0 +1,74 @@
+name: Security Review
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  security-scan:
+    name: Run Security Audits & SAST
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Security Tools
+        run: |
+          pip install bandit safety pip-audit
+
+      - name: Scan Codebase with Bandit
+        # Scans python scripts for common vulnerabilities, outputs to security_report.txt
+        run: |
+          bandit -r appium_tests/ scratch/ e2e/ -f txt -o bandit_report.txt || true
+          cat bandit_report.txt
+
+      - name: Audit Python Dependencies
+        run: |
+          pip-audit -r requirements.txt --format txt > pip_audit_report.txt || true
+          cat pip_audit_report.txt
+
+      - name: Run Secret Leakage Audit
+        # Check that Supabase constants do not contain hardcoded credentials
+        run: |
+          echo "==== Hardcoded Supabase Key Check ====" > secrets_audit_report.txt
+          
+          # Inspect if supabaseUrl contains the hardcoded demo project URL
+          if grep -q "https://xyczocswufelhpcrmjow.supabase.co" lib/core/constants/supabase_constants.dart; then
+            echo "[FAIL] Security Alert: Hardcoded Supabase URL found in codebase constants!" >> secrets_audit_report.txt
+            echo "Secrets Check: FAILED"
+            exit_code=1
+          else
+            echo "[PASS] No hardcoded Supabase URL constants found." >> secrets_audit_report.txt
+            echo "Secrets Check: PASSED"
+            exit_code=0
+          fi
+          
+          # Inspect if supabaseAnonKey has a hardcoded token string
+          if grep -E -q "supabaseAnonKey = 'ey" lib/core/constants/supabase_constants.dart; then
+            echo "[FAIL] Security Alert: Hardcoded Supabase Anon Key token found in codebase!" >> secrets_audit_report.txt
+            exit_code=1
+          else
+            echo "[PASS] No hardcoded Supabase Anon Key token found." >> secrets_audit_report.txt
+          fi
+          
+          cat secrets_audit_report.txt
+          exit $exit_code
+
+      - name: Upload Security Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit-reports
+          path: |
+            bandit_report.txt
+            pip_audit_report.txt
+            secrets_audit_report.txt
+          retention-days: 14
