@@ -30,8 +30,8 @@ jobs:
         run: flutter pub get
 
       - name: Static Code Analysis
-        # Enforce coding rules and lint checks without treating warnings/infos as fatal
-        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+        # Enforce coding rules and lint checks
+        run: flutter analyze
 
       - name: Build Debug APK
         # Verifies compilation succeeds

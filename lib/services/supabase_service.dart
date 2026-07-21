@@ -10,7 +10,7 @@ class SupabaseService {
     // Guard against missing credentials at startup
     if (SupabaseConstants.supabaseUrl.isEmpty ||
         SupabaseConstants.supabaseAnonKey.isEmpty) {
-      throw AppException(
+      throw const AppException(
         'Supabase credentials are not configured. '
         'Run with --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...',
       );
@@ -20,7 +20,7 @@ class SupabaseService {
       url: SupabaseConstants.supabaseUrl,
       // ignore: deprecated_member_use
       anonKey: SupabaseConstants.supabaseAnonKey,
-      realtimeClientOptions: RealtimeClientOptions(
+      realtimeClientOptions: const RealtimeClientOptions(
         // Verbose logging only in debug builds; silent in production
         logLevel: kDebugMode ? RealtimeLogLevel.info : RealtimeLogLevel.error,
       ),

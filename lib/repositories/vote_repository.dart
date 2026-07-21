@@ -2,8 +2,7 @@ import '../core/constants/supabase_constants.dart';
 import '../core/errors/app_exceptions.dart';
 import '../models/vote_model.dart';
 import '../services/supabase_service.dart';
-import '../controllers/auth_controller.dart';
-import '../core/utils/demo_store.dart';
+
 
 class VoteRepository {
   final _client = SupabaseService.client;
@@ -19,22 +18,6 @@ class VoteRepository {
     required String candidateId,
     required String electionId,
   }) async {
-    if (AuthController.isDemoMode) {
-      final hasVoted = DemoStore.votes
-          .any((v) => v.userId == userId && v.electionId == electionId);
-      if (hasVoted) {
-        throw const ValidationException('You have already voted in this election.');
-      }
-      final vote = VoteModel(
-        id: 'vote-${DateTime.now().millisecondsSinceEpoch}',
-        userId: userId,
-        candidateId: candidateId,
-        electionId: electionId,
-        votedAt: DateTime.now(),
-      );
-      DemoStore.votes.add(vote);
-      return vote;
-    }
     try {
       // Single atomic INSERT — the DB UNIQUE constraint on (user_id, election_id)
       // will reject duplicates and the RLS policy enforces verified + active election.
@@ -67,10 +50,6 @@ class VoteRepository {
 
   // ── Check if user has voted ─────────────────────────────────────────────────
   Future<bool> hasUserVoted(String userId, String electionId) async {
-    if (AuthController.isDemoMode) {
-      return DemoStore.votes
-          .any((v) => v.userId == userId && v.electionId == electionId);
-    }
     try {
       final response = await _client
           .from(SupabaseConstants.votesTable)
@@ -86,9 +65,6 @@ class VoteRepository {
 
   // ── Get total votes ─────────────────────────────────────────────────────────
   Future<int> getTotalVotes(String electionId) async {
-    if (AuthController.isDemoMode) {
-      return DemoStore.votes.where((v) => v.electionId == electionId).length;
-    }
     try {
       final response = await _client
           .from(SupabaseConstants.votesTable)
@@ -102,14 +78,6 @@ class VoteRepository {
 
   // ── Get votes by candidate ──────────────────────────────────────────────────
   Future<Map<String, int>> getVotesByCandidate(String electionId) async {
-    if (AuthController.isDemoMode) {
-      final Map<String, int> voteCounts = {};
-      for (final v
-          in DemoStore.votes.where((v) => v.electionId == electionId)) {
-        voteCounts[v.candidateId] = (voteCounts[v.candidateId] ?? 0) + 1;
-      }
-      return voteCounts;
-    }
     try {
       final response = await _client
           .from(SupabaseConstants.votesTable)
@@ -131,10 +99,6 @@ class VoteRepository {
 
   // ── Delete all votes (admin reset) ─────────────────────────────────────────
   Future<void> deleteAllVotes(String electionId) async {
-    if (AuthController.isDemoMode) {
-      DemoStore.votes.removeWhere((v) => v.electionId == electionId);
-      return;
-    }
     try {
       await _client
           .from(SupabaseConstants.votesTable)
@@ -148,13 +112,6 @@ class VoteRepository {
   // ── Get recent votes ────────────────────────────────────────────────────────
   Future<List<VoteModel>> getRecentVotes(String electionId,
       {int limit = 10}) async {
-    if (AuthController.isDemoMode) {
-      final list = DemoStore.votes
-          .where((v) => v.electionId == electionId)
-          .toList()
-        ..sort((a, b) => b.votedAt.compareTo(a.votedAt));
-      return list.take(limit).toList();
-    }
     try {
       final response = await _client
           .from(SupabaseConstants.votesTable)
@@ -171,25 +128,6 @@ class VoteRepository {
   // ── Get user voting history with details ────────────────────────────────────
   Future<List<Map<String, dynamic>>> getUserVotingHistory(
       String userId) async {
-    if (AuthController.isDemoMode) {
-      final list = DemoStore.votes
-          .where((v) => v.userId == userId)
-          .toList()
-        ..sort((a, b) => b.votedAt.compareTo(a.votedAt));
-      return list.map((v) {
-        final cand = DemoStore.candidates.firstWhere(
-          (c) => c.id == v.candidateId,
-          orElse: () => DemoStore.candidates[0],
-        );
-        final elec = DemoStore.currentElection;
-        return {
-          'id': v.id,
-          'voted_at': v.votedAt.toIso8601String(),
-          'elections': elec?.toJson(),
-          'candidates': cand.toJson(),
-        };
-      }).toList();
-    }
     try {
       final response = await _client
           .from(SupabaseConstants.votesTable)

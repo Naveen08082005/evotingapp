@@ -11,6 +11,7 @@ import '../screens/admin/user_management_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
+import '../screens/auth/verify_email_screen.dart';
 import '../screens/onboarding/onboarding_screen.dart';
 import '../screens/splash/splash_screen.dart';
 import '../screens/user/candidate_detail_screen.dart';
@@ -29,6 +30,7 @@ class AppRoutes {
   static const String login = '/login';
   static const String register = '/register';
   static const String forgotPassword = '/forgot-password';
+  static const String verifyEmail = '/verify-email';
 
   static const String userDashboard = '/user/dashboard';
   static const String verification = '/user/verification';
@@ -79,6 +81,12 @@ class AppRoutes {
     GetPage(
       name: forgotPassword,
       page: () => const ForgotPasswordScreen(),
+      binding: AuthBinding(),
+      transition: Transition.fadeIn,
+    ),
+    GetPage(
+      name: verifyEmail,
+      page: () => const VerifyEmailScreen(),
       binding: AuthBinding(),
       transition: Transition.fadeIn,
     ),

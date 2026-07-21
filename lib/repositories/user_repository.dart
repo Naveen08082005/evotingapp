@@ -2,8 +2,7 @@ import '../core/constants/supabase_constants.dart';
 import '../core/errors/app_exceptions.dart';
 import '../models/user_model.dart';
 import '../services/supabase_service.dart';
-import '../controllers/auth_controller.dart';
-import '../core/utils/demo_store.dart';
+
 
 class UserRepository {
   final _client = SupabaseService.client;
@@ -28,15 +27,6 @@ class UserRepository {
 
   // ── Create user profile after signup ───────────────────────────────────────
   Future<UserModel> createUser(UserModel user) async {
-    if (AuthController.isDemoMode) {
-      final index = DemoStore.users.indexWhere((u) => u.id == user.id);
-      if (index != -1) {
-        DemoStore.users[index] = user;
-      } else {
-        DemoStore.users.add(user);
-      }
-      return user;
-    }
     try {
       final data = {
         'id': user.id,
@@ -64,10 +54,6 @@ class UserRepository {
 
   // ── Get user by ID ─────────────────────────────────────────────────────────
   Future<UserModel?> getUserById(String userId) async {
-    if (AuthController.isDemoMode) {
-      final matches = DemoStore.users.where((u) => u.id == userId);
-      return matches.isEmpty ? null : matches.first;
-    }
     try {
       final response = await _client
           .from(SupabaseConstants.usersTable)
@@ -85,9 +71,6 @@ class UserRepository {
   /// Returns only the fields needed for the admin list view to minimise PII
   /// in transit. Full profile is fetched individually when needed.
   Future<List<UserModel>> getAllUsers({int page = 0, int pageSize = 50}) async {
-    if (AuthController.isDemoMode) {
-      return DemoStore.users.where((u) => u.role == 'student').toList();
-    }
     try {
       final from = page * pageSize;
       final to = from + pageSize - 1;
@@ -111,19 +94,6 @@ class UserRepository {
     );
     if (sanitized.isEmpty) {
       throw const ValidationException('No valid fields provided for update.');
-    }
-
-    if (AuthController.isDemoMode) {
-      final index = DemoStore.users.indexWhere((u) => u.id == userId);
-      if (index != -1) {
-        final updated = DemoStore.users[index].copyWith(
-          isVerified: sanitized['is_verified'] as bool?,
-          updatedAt: DateTime.now(),
-        );
-        DemoStore.users[index] = updated;
-        return updated;
-      }
-      throw Exception('User not found');
     }
     try {
       sanitized['updated_at'] = DateTime.now().toIso8601String();
@@ -149,23 +119,6 @@ class UserRepository {
     if (sanitized.isEmpty) {
       throw const ValidationException('No valid fields provided for update.');
     }
-
-    if (AuthController.isDemoMode) {
-      final index = DemoStore.users.indexWhere((u) => u.id == userId);
-      if (index != -1) {
-        final updated = DemoStore.users[index].copyWith(
-          fullName: sanitized['full_name'] as String?,
-          mobileNumber: sanitized['mobile_number'] as String?,
-          department: sanitized['department'] as String?,
-          year: sanitized['year'] as String?,
-          photoUrl: sanitized['photo_url'] as String?,
-          updatedAt: DateTime.now(),
-        );
-        DemoStore.users[index] = updated;
-        return updated;
-      }
-      throw Exception('User not found');
-    }
     try {
       sanitized['updated_at'] = DateTime.now().toIso8601String();
       final response = await _client
@@ -182,16 +135,6 @@ class UserRepository {
 
   // ── Mark user as verified ──────────────────────────────────────────────────
   Future<void> verifyUser(String userId) async {
-    if (AuthController.isDemoMode) {
-      final index = DemoStore.users.indexWhere((u) => u.id == userId);
-      if (index != -1) {
-        DemoStore.users[index] = DemoStore.users[index].copyWith(
-          isVerified: true,
-          updatedAt: DateTime.now(),
-        );
-      }
-      return;
-    }
     try {
       await _client
           .from(SupabaseConstants.usersTable)
@@ -204,17 +147,6 @@ class UserRepository {
 
   // ── Mark user as voted ─────────────────────────────────────────────────────
   Future<void> markUserVoted(String userId) async {
-    if (AuthController.isDemoMode) {
-      final index = DemoStore.users.indexWhere((u) => u.id == userId);
-      if (index != -1) {
-        DemoStore.users[index] = DemoStore.users[index].copyWith(
-          hasVoted: true,
-          votedAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-      }
-      return;
-    }
     try {
       await _client
           .from(SupabaseConstants.usersTable)
@@ -231,11 +163,6 @@ class UserRepository {
 
   // ── Get voted users count ──────────────────────────────────────────────────
   Future<int> getVotedUsersCount() async {
-    if (AuthController.isDemoMode) {
-      return DemoStore.users
-          .where((u) => u.hasVoted && u.role == 'student')
-          .length;
-    }
     try {
       final response = await _client
           .from(SupabaseConstants.usersTable)
@@ -256,20 +183,6 @@ class UserRepository {
     if (sanitized.length > 100) {
       throw const ValidationException('Search query is too long.');
     }
-
-    if (AuthController.isDemoMode) {
-      return DemoStore.users
-          .where((u) =>
-              u.role == 'student' &&
-              (u.fullName.toLowerCase().contains(sanitized.toLowerCase()) ||
-                  u.registerNumber
-                      .toLowerCase()
-                      .contains(sanitized.toLowerCase()) ||
-                  u.email
-                      .toLowerCase()
-                      .contains(sanitized.toLowerCase())))
-          .toList();
-    }
     try {
       // Use RPC with named parameter to avoid direct string interpolation
       final response = await _client.rpc(
@@ -284,19 +197,6 @@ class UserRepository {
 
   // ── Reset all votes ────────────────────────────────────────────────────────
   Future<void> resetAllVotes() async {
-    if (AuthController.isDemoMode) {
-      for (int i = 0; i < DemoStore.users.length; i++) {
-        if (DemoStore.users[i].role == 'student') {
-          DemoStore.users[i] = DemoStore.users[i].copyWith(
-            hasVoted: false,
-            votedAt: null,
-            isVerified: false,
-            updatedAt: DateTime.now(),
-          );
-        }
-      }
-      return;
-    }
     try {
       await _client
           .from(SupabaseConstants.usersTable)
@@ -309,6 +209,20 @@ class UserRepository {
           .eq('role', 'student');
     } catch (e) {
       throw DatabaseException(parseSupabaseError(e));
+    }
+  }
+
+  // ── Check if register number exists ───────────────────────────────────────
+  Future<bool> registerNumberExists(String registerNumber) async {
+    try {
+      final response = await _client
+          .from(SupabaseConstants.usersTable)
+          .select('id')
+          .eq('register_number', registerNumber.trim())
+          .maybeSingle();
+      return response != null;
+    } catch (e) {
+      return false;
     }
   }
 }

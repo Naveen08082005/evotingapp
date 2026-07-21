@@ -39,11 +39,14 @@ class CandidateController extends GetxController {
     var list = candidates.toList();
     if (searchQuery.value.isNotEmpty) {
       final q = searchQuery.value.toLowerCase();
-      list = list.where((c) =>
-        c.name.toLowerCase().contains(q) ||
-        c.position.toLowerCase().contains(q) ||
-        c.department.toLowerCase().contains(q),
-      ).toList();
+      list = list
+          .where(
+            (c) =>
+                c.name.toLowerCase().contains(q) ||
+                c.position.toLowerCase().contains(q) ||
+                c.department.toLowerCase().contains(q),
+          )
+          .toList();
     }
     if (statusFilter.value != 'all') {
       list = list.where((c) => c.status == statusFilter.value).toList();
@@ -83,8 +86,8 @@ class CandidateController extends GetxController {
         'added_by': addedBy,
       };
 
-      final candidate = await _repo.addCandidate(data);
-      // Refresh the full list to avoid duplicate entries (especially in demo mode)
+      await _repo.addCandidate(data);
+      // Refresh the full list to avoid duplicate entries
       await loadCandidates();
       Get.back();
       Get.snackbar('Success', 'Candidate added successfully.',

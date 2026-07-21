@@ -1,3 +1,5 @@
+import '../../models/verification_settings_model.dart';
+
 class Validators {
   // ── Email ──────────────────────────────────────────────────────────────────
   static String? validateEmail(String? value) {
@@ -59,14 +61,57 @@ class Validators {
     return null;
   }
 
-  // ── Register number (format: 2 digits + 2 uppercase letters + 3+ digits) ──
-  /// Example: 22CS045, 23EC102, 21ME301
-  static String? validateRegisterNumber(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Register number is required';
-    final regNoRegex = RegExp(r'^\d{2}[A-Z]{2}\d{3,}$');
-    if (!regNoRegex.hasMatch(value.trim().toUpperCase())) {
-      return 'Enter a valid register number (e.g. 22CS045)';
+  // ── Register number (Validated against admin-configured VerificationSettings) ──
+  static String? validateRegisterNumber(
+    String? value, {
+    VerificationSettingsModel? settings,
+  }) {
+    final trimmed = value?.trim() ?? '';
+    final isRequired = settings?.requireRegisterNumber ?? true;
+
+    if (trimmed.isEmpty) {
+      if (isRequired) {
+        return 'Register number is required';
+      }
+      return null;
     }
+
+    final minLen = settings?.minRegisterNumberLength ?? 1;
+    final maxLen = settings?.maxRegisterNumberLength ?? 30;
+
+    if (trimmed.length < minLen) {
+      return 'Register number must be at least $minLen character${minLen == 1 ? "" : "s"}';
+    }
+
+    if (trimmed.length > maxLen) {
+      return 'Register number must not exceed $maxLen character${maxLen == 1 ? "" : "s"}';
+    }
+
+    final allowLetters = settings?.allowLetters ?? true;
+    final allowNumbers = settings?.allowNumbers ?? true;
+    final allowHyphen = settings?.allowHyphen ?? true;
+
+    for (int i = 0; i < trimmed.length; i++) {
+      final char = trimmed[i];
+      final isLetter = (char.codeUnitAt(0) >= 65 && char.codeUnitAt(0) <= 90) ||
+                       (char.codeUnitAt(0) >= 97 && char.codeUnitAt(0) <= 122);
+      final isNumber = char.codeUnitAt(0) >= 48 && char.codeUnitAt(0) <= 57;
+      final isHyphen = char == '-';
+
+      if (isLetter && !allowLetters) {
+        return 'Letters are not allowed in the register number';
+      }
+      if (isNumber && !allowNumbers) {
+        return 'Numbers are not allowed in the register number';
+      }
+      if (isHyphen && !allowHyphen) {
+        return 'Hyphens are not allowed in the register number';
+      }
+      if (!isLetter && !isNumber && !isHyphen) {
+        return 'Character "$char" is not allowed in the register number';
+      }
+    }
+
     return null;
   }
 

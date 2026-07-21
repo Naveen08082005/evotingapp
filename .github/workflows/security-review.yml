@@ -66,9 +66,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: security-reports
+          name: security-audit-reports
           path: |
-            testing_reports/security/
+            vulnerability_test_report_400.xlsx
+            vulnerability_test_report.xlsx
             bandit_report.txt
             pip_audit_report.txt
             secrets_audit_report.txt

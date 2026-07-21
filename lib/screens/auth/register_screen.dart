@@ -105,10 +105,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 14),
                 CustomTextField(
                   label: AppStrings.registerNumber,
-                  hint: 'e.g. 21CS001',
+                  hint: 'Enter your register number',
                   controller: _regNoCtrl,
                   prefixIcon: Icons.badge_outlined,
-                  validator: Validators.validateRegisterNumber,
+                  validator: (v) => Validators.validateRegisterNumber(
+                    v,
+                    settings: _authController.verificationSettings.value,
+                  ),
                 ),
                 const SizedBox(height: 14),
                 CustomTextField(

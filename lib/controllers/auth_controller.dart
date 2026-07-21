@@ -1,16 +1,18 @@
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'dart:developer';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../models/user_model.dart';
+import '../models/verification_settings_model.dart';
 import '../repositories/auth_repository.dart';
+import '../repositories/election_repository.dart';
 import '../routes/app_routes.dart';
 import '../services/auth_service.dart';
 import '../repositories/user_repository.dart';
 import '../controllers/notification_controller.dart';
+import '../core/utils/validators.dart';
+import '../core/errors/app_exceptions.dart';
 
 class AuthController extends GetxController {
-  /// Demo mode is only active in debug builds and is never shipped to
-  /// production. All demo credentials are gated behind [kDebugMode].
-  static bool isDemoMode = false;
 
   // ── Rate-limiting state ───────────────────────────────────────────────────
   static const int _maxLoginAttempts = 5;
@@ -21,9 +23,12 @@ class AuthController extends GetxController {
   final AuthService _authService = AuthService();
   final AuthRepository _authRepository = AuthRepository();
   final UserRepository _userRepository = UserRepository();
+  final ElectionRepository _electionRepository = ElectionRepository();
 
   final Rx<UserModel?> currentUser = Rx<UserModel?>(null);
+  final Rx<VerificationSettingsModel?> verificationSettings = Rx<VerificationSettingsModel?>(null);
   final RxBool isLoading = false.obs;
+  final RxBool isResending = false.obs;
   final RxBool isAdmin = false.obs;
   final RxString errorMessage = ''.obs;
 
@@ -31,11 +36,18 @@ class AuthController extends GetxController {
   void onInit() {
     super.onInit();
     _listenToAuthChanges();
+    loadVerificationSettings();
+  }
+
+  Future<void> loadVerificationSettings() async {
+    try {
+      verificationSettings.value = await _electionRepository.getVerificationSettings();
+    } catch (_) {}
   }
 
   void _listenToAuthChanges() {
     _authService.authStateChanges.listen((state) async {
-      if (isDemoMode) return;
+      log('[AuthController] Auth state event: ${state.event}, user: ${state.session?.user.email}');
       final user = state.session?.user;
       if (user != null) {
         await _loadUserData(user.id);
@@ -92,44 +104,6 @@ class AuthController extends GetxController {
       isLoading.value = true;
       errorMessage.value = '';
 
-      // ── Demo mode: only available in debug builds ──────────────────────────
-      if (kDebugMode) {
-        if (email == 'admin@demo.local' && password == 'DemoAdmin#2026') {
-          isDemoMode = true;
-          isAdmin.value = true;
-          currentUser.value = null;
-          _loginAttempts = 0;
-          Get.offAllNamed(AppRoutes.adminDashboard);
-          return;
-        }
-
-        if (email == 'student@demo.local' && password == 'DemoStudent#2026') {
-          isDemoMode = true;
-          isAdmin.value = false;
-          currentUser.value = UserModel(
-            id: '11111111-1111-1111-1111-111111111111',
-            email: 'student@demo.local',
-            fullName: 'Test Student (Demo)',
-            registerNumber: 'TEST001',
-            mobileNumber: '0000000000',
-            department: 'Computer Science',
-            year: '3rd Year',
-            role: 'student',
-            isVerified: true,
-            hasVoted: false,
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          );
-          try {
-            Get.find<NotificationController>()
-                .initUser('11111111-1111-1111-1111-111111111111');
-          } catch (_) {}
-          _loginAttempts = 0;
-          Get.offAllNamed(AppRoutes.userDashboard);
-          return;
-        }
-      }
-
       // ── Real Supabase authentication ───────────────────────────────────────
       final response = await _authService.signIn(email: email, password: password);
       final userId = response.user?.id;
@@ -181,6 +155,36 @@ class AuthController extends GetxController {
     try {
       isLoading.value = true;
       errorMessage.value = '';
+      log('[AuthController] Starting registration for: $email ($registerNumber)');
+
+      // Ensure verification settings are loaded
+      if (verificationSettings.value == null) {
+        await loadVerificationSettings();
+      }
+
+      final settings = verificationSettings.value;
+
+      // 1. Validate register number against admin settings
+      final regErr = Validators.validateRegisterNumber(
+        registerNumber,
+        settings: settings,
+      );
+      if (regErr != null) {
+        throw AppAuthException(regErr);
+      }
+
+      // 2. Check duplicate register numbers if disallowed by admin settings
+      final allowDuplicate = settings?.allowDuplicateRegisterNumber ?? false;
+      if (!allowDuplicate && registerNumber.trim().isNotEmpty) {
+        final exists = await _userRepository.registerNumberExists(registerNumber);
+        if (exists) {
+          throw const AppAuthException('This register number is already registered.');
+        }
+      }
+
+      final redirectUrl = kIsWeb
+          ? '${Uri.base.origin}/#/login'
+          : 'com.evoting.evoting_app://login-callback';
 
       final response = await _authService.signUp(
         email: email,
@@ -188,56 +192,71 @@ class AuthController extends GetxController {
         userData: {
           'full_name': fullName,
           'role': 'student',
-          'register_number': registerNumber,
+          'register_number': registerNumber.trim(),
           'mobile_number': mobileNumber,
           'department': department,
           if (year != null) 'year': year,
           if (photoUrl != null) 'photo_url': photoUrl,
         },
+        emailRedirectTo: redirectUrl,
       );
 
       final userId = response.user?.id;
-      if (userId == null) throw Exception('Registration failed. Please try again.');
+      log('[AuthController] Supabase signUp response details:');
+      log('  -> User ID: $userId');
+      log('  -> Email: ${response.user?.email}');
+      log('  -> Session Active: ${response.session != null}');
+      log('  -> Email Confirmed At: ${response.user?.emailConfirmedAt}');
 
-      if (response.session == null) {
-        // Email confirmation is enabled
-        Get.snackbar(
-          'Verification Required',
-          'A confirmation email has been sent to $email. Please verify before logging in.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 8),
+      if (userId == null) {
+        throw const AppAuthException('Registration request failed to generate a valid user ID.');
+      }
+
+      final isEmailConfirmed = response.user?.emailConfirmedAt != null;
+      final hasSession = response.session != null;
+
+      // Case A: Email confirmation is DISABLED in Supabase Dashboard (user is auto-confirmed)
+      if (hasSession && isEmailConfirmed) {
+        log('[AuthController] Email confirmation is disabled in Supabase. User auto-confirmed. Redirecting to dashboard.');
+        final userModel = UserModel(
+          id: userId,
+          email: email,
+          fullName: fullName,
+          registerNumber: registerNumber.trim(),
+          mobileNumber: mobileNumber,
+          department: department,
+          year: year,
+          photoUrl: photoUrl,
+          role: 'student',
+          isVerified: true,
+          hasVoted: false,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
         );
-        Get.offAllNamed(AppRoutes.login);
+
+        final created = await _userRepository.createUser(userModel);
+        currentUser.value = created;
+        isAdmin.value = false;
+
+        Get.offAllNamed(AppRoutes.userDashboard);
         return;
       }
 
-      final userModel = UserModel(
-        id: userId,
-        email: email,
-        fullName: fullName,
-        registerNumber: registerNumber,
-        mobileNumber: mobileNumber,
-        department: department,
-        year: year,
-        photoUrl: photoUrl,
-        role: 'student',
-        isVerified: false,
-        hasVoted: false,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      final created = await _userRepository.createUser(userModel);
-      currentUser.value = created;
-      isAdmin.value = false;
-
-      Get.offAllNamed(AppRoutes.userDashboard);
+      // Case B: Email confirmation is ENABLED in Supabase Dashboard (verification email sent)
+      log('[AuthController] Verification email sent by Supabase. Redirecting to VerifyEmailScreen for email: $email');
+      Get.offAllNamed(AppRoutes.verifyEmail, arguments: {'email': email});
+      return;
     } catch (e) {
-      // Show only a generic registration error
-      errorMessage.value = 'Registration failed. Please check your details and try again.';
+      log('[AuthController] Registration Error: $e');
+      final msg = e.toString().replaceAll('Exception: ', '').replaceAll('AppAuthException: ', '');
+      errorMessage.value = msg.contains('duplicate') || msg.contains('already exists')
+          ? 'An account or register number with those details already exists.'
+          : msg.isNotEmpty
+              ? msg
+              : 'Registration failed. Please check your details and try again.';
       Get.snackbar(
         'Registration Failed',
-        'Registration failed. Please check your details and try again.',
+        errorMessage.value,
         snackPosition: SnackPosition.BOTTOM,
       );
     } finally {
@@ -271,19 +290,13 @@ class AuthController extends GetxController {
   // ── Logout ────────────────────────────────────────────────────────────────
   Future<void> logout() async {
     try {
-      // Always revoke the server-side session, even in demo mode
-      if (!isDemoMode) {
-        await _authService.signOut();
-      }
-      isDemoMode = false;
+      await _authService.signOut();
       currentUser.value = null;
       isAdmin.value = false;
       _loginAttempts = 0;
       _lockedUntil = null;
       Get.offAllNamed(AppRoutes.login);
     } catch (_) {
-      // Even on error, clear local state and redirect
-      isDemoMode = false;
       currentUser.value = null;
       isAdmin.value = false;
       Get.offAllNamed(AppRoutes.login);
@@ -302,13 +315,42 @@ class AuthController extends GetxController {
     }
   }
 
-  bool get isLoggedIn => isDemoMode
-      ? (currentUser.value != null || isAdmin.value)
-      : _authService.isLoggedIn;
+  // ── Resend Verification Email ──────────────────────────────────────────────
+  Future<void> resendVerificationEmail(String email) async {
+    try {
+      isResending.value = true;
+      log('[AuthController] Requesting resend verification email for: $email');
+      final redirectUrl = kIsWeb
+          ? '${Uri.base.origin}/#/login'
+          : 'com.evoting.evoting_app://login-callback';
 
-  String? get userId => isDemoMode
-      ? (isAdmin.value
-          ? '00000000-0000-0000-0000-000000000000'
-          : currentUser.value?.id)
-      : _authService.currentUser?.id;
+      await _authService.resendVerificationEmail(
+        email: email,
+        emailRedirectTo: redirectUrl,
+      );
+
+      Get.snackbar(
+        'Email Dispatched',
+        'A new verification link has been sent to $email. Please check your inbox and spam folder.',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 6),
+      );
+    } catch (e) {
+      log('[AuthController] Resend email failed: $e');
+      final msg = e.toString().replaceAll('Exception: ', '').replaceAll('AppAuthException: ', '');
+      Get.snackbar(
+        'Resend Failed',
+        msg.contains('rate') || msg.contains('limit')
+            ? 'Email rate limit exceeded. Please wait a few minutes before requesting another email.'
+            : msg,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      isResending.value = false;
+    }
+  }
+
+  bool get isLoggedIn => _authService.isLoggedIn;
+
+  String? get userId => _authService.currentUser?.id;
 }

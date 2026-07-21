@@ -1,6 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/constants/supabase_constants.dart';
-import '../core/errors/app_exceptions.dart';
 import 'supabase_service.dart';
 
 class RealtimeService {

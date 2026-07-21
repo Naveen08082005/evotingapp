@@ -111,14 +111,29 @@ CREATE INDEX IF NOT EXISTS idx_votes_election_id  ON public.votes(election_id);
 -- TABLE: verification_settings
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.verification_settings (
-    id                        UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    require_register_number   BOOLEAN NOT NULL DEFAULT TRUE,
-    require_full_name         BOOLEAN NOT NULL DEFAULT TRUE,
-    require_mobile_number     BOOLEAN NOT NULL DEFAULT FALSE,
-    require_department        BOOLEAN NOT NULL DEFAULT FALSE,
-    require_email             BOOLEAN NOT NULL DEFAULT FALSE,
-    updated_at                TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id                                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    require_register_number           BOOLEAN NOT NULL DEFAULT TRUE,
+    require_full_name                 BOOLEAN NOT NULL DEFAULT TRUE,
+    require_mobile_number             BOOLEAN NOT NULL DEFAULT FALSE,
+    require_department                BOOLEAN NOT NULL DEFAULT FALSE,
+    require_email                     BOOLEAN NOT NULL DEFAULT FALSE,
+    min_register_number_length        INTEGER NOT NULL DEFAULT 1,
+    max_register_number_length        INTEGER NOT NULL DEFAULT 30,
+    allow_duplicate_register_number   BOOLEAN NOT NULL DEFAULT FALSE,
+    allow_letters                     BOOLEAN NOT NULL DEFAULT TRUE,
+    allow_numbers                     BOOLEAN NOT NULL DEFAULT TRUE,
+    allow_hyphen                      BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at                        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Migration for existing databases
+ALTER TABLE public.verification_settings
+    ADD COLUMN IF NOT EXISTS min_register_number_length INTEGER NOT NULL DEFAULT 1,
+    ADD COLUMN IF NOT EXISTS max_register_number_length INTEGER NOT NULL DEFAULT 30,
+    ADD COLUMN IF NOT EXISTS allow_duplicate_register_number BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS allow_letters BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN IF NOT EXISTS allow_numbers BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN IF NOT EXISTS allow_hyphen BOOLEAN NOT NULL DEFAULT TRUE;
 
 -- ============================================================
 -- FUNCTION: increment_vote_count (RPC)

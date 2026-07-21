@@ -89,14 +89,14 @@ def pytest_runtest_makereport(item, call):
 @pytest.fixture
 def admin_credentials():
     return {
-        "email": "admin@demo.local",
-        "password": "DemoAdmin#2026"
+        "email": "admin@college.edu",
+        "password": "AdminPassword#2026"
     }
 
 @pytest.fixture
 def student_credentials():
     return {
-        "email": "student@demo.local",
-        "password": "DemoStudent#2026",
+        "email": "student@college.edu",
+        "password": "StudentPassword#2026",
         "register_num": "22CS045"
     }

@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../../controllers/election_controller.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/helpers.dart';
+import '../../models/verification_settings_model.dart';
 import '../../widgets/common/custom_button.dart';
 import '../../widgets/common/loading_widget.dart';
 
@@ -303,46 +304,182 @@ class _ToggleCard extends StatelessWidget {
   }
 }
 
-class _VerificationSettingsCard extends StatelessWidget {
-  final dynamic settings;
+class _VerificationSettingsCard extends StatefulWidget {
+  final VerificationSettingsModel settings;
   final ElectionController controller;
 
-  const _VerificationSettingsCard({required this.settings, required this.controller});
+  const _VerificationSettingsCard({
+    required this.settings,
+    required this.controller,
+  });
+
+  @override
+  State<_VerificationSettingsCard> createState() => _VerificationSettingsCardState();
+}
+
+class _VerificationSettingsCardState extends State<_VerificationSettingsCard> {
+  late TextEditingController _minLenCtrl;
+  late TextEditingController _maxLenCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _minLenCtrl = TextEditingController(
+        text: widget.settings.minRegisterNumberLength.toString());
+    _maxLenCtrl = TextEditingController(
+        text: widget.settings.maxRegisterNumberLength.toString());
+  }
+
+  @override
+  void didUpdateWidget(covariant _VerificationSettingsCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.settings != widget.settings) {
+      _minLenCtrl.text = widget.settings.minRegisterNumberLength.toString();
+      _maxLenCtrl.text = widget.settings.maxRegisterNumberLength.toString();
+    }
+  }
+
+  @override
+  void dispose() {
+    _minLenCtrl.dispose();
+    _maxLenCtrl.dispose();
+    super.dispose();
+  }
+
+  void _saveLengthSetting(String key, String val) {
+    final parsed = int.tryParse(val.trim());
+    if (parsed != null && parsed >= 1) {
+      widget.controller.updateVerificationSettings({key: parsed});
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final s = widget.settings;
+    final c = widget.controller;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text(
+            'Field Requirements',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Poppins',
+              fontSize: 15,
+            ),
+          ),
+          const SizedBox(height: 8),
           _VerifyToggle(
-            label: 'Register Number',
-            value: settings.requireRegisterNumber,
-            onChanged: (v) => controller.updateVerificationSettings({'require_register_number': v}),
+            label: 'Register Number Required',
+            value: s.requireRegisterNumber,
+            onChanged: (v) => c.updateVerificationSettings({'require_register_number': v}),
           ),
           _VerifyToggle(
-            label: 'Full Name',
-            value: settings.requireFullName,
-            onChanged: (v) => controller.updateVerificationSettings({'require_full_name': v}),
+            label: 'Full Name Required',
+            value: s.requireFullName,
+            onChanged: (v) => c.updateVerificationSettings({'require_full_name': v}),
           ),
           _VerifyToggle(
-            label: 'Mobile Number',
-            value: settings.requireMobileNumber,
-            onChanged: (v) => controller.updateVerificationSettings({'require_mobile_number': v}),
+            label: 'Mobile Number Required',
+            value: s.requireMobileNumber,
+            onChanged: (v) => c.updateVerificationSettings({'require_mobile_number': v}),
           ),
           _VerifyToggle(
-            label: 'Department',
-            value: settings.requireDepartment,
-            onChanged: (v) => controller.updateVerificationSettings({'require_department': v}),
+            label: 'Department Required',
+            value: s.requireDepartment,
+            onChanged: (v) => c.updateVerificationSettings({'require_department': v}),
           ),
           _VerifyToggle(
-            label: 'Email',
-            value: settings.requireEmail,
-            onChanged: (v) => controller.updateVerificationSettings({'require_email': v}),
+            label: 'Email Required',
+            value: s.requireEmail,
+            onChanged: (v) => c.updateVerificationSettings({'require_email': v}),
+          ),
+          const Divider(height: 28),
+          const Text(
+            'Register Number Validation Rules',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Poppins',
+              fontSize: 15,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Configure dynamic length, character set, and duplicate constraints enforced during registration.',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              fontFamily: 'Poppins',
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _minLenCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Min Length',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  onSubmitted: (v) => _saveLengthSetting('min_register_number_length', v),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: TextField(
+                  controller: _maxLenCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Max Length',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  onSubmitted: (v) => _saveLengthSetting('max_register_number_length', v),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _VerifyToggle(
+            label: 'Allow Duplicate Register Numbers',
+            value: s.allowDuplicateRegisterNumber,
+            onChanged: (v) => c.updateVerificationSettings({'allow_duplicate_register_number': v}),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Allowed Character Sets',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Poppins',
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 4),
+          _VerifyToggle(
+            label: 'Letters (A-Z, a-z)',
+            value: s.allowLetters,
+            onChanged: (v) => c.updateVerificationSettings({'allow_letters': v}),
+          ),
+          _VerifyToggle(
+            label: 'Numbers (0-9)',
+            value: s.allowNumbers,
+            onChanged: (v) => c.updateVerificationSettings({'allow_numbers': v}),
+          ),
+          _VerifyToggle(
+            label: 'Hyphen (-)',
+            value: s.allowHyphen,
+            onChanged: (v) => c.updateVerificationSettings({'allow_hyphen': v}),
           ),
         ],
       ),
