@@ -52,7 +52,8 @@ jobs:
       - name: Build APK
         run: |
           flutter pub get
-          flutter build apk --debug
+          yes | flutter doctor --android-licenses || true
+          flutter build apk --debug --dart-define=SUPABASE_URL=https://xyczocswufelhpcrmjow.supabase.co --dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy
 
       - name: Run Appium Tests in Emulator
         uses: reactivecircus/android-emulator-runner@v2

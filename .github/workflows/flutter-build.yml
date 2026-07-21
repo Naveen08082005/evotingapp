@@ -29,13 +29,16 @@ jobs:
       - name: Fetch Dependencies
         run: flutter pub get
 
+      - name: Accept Android Licenses
+        run: yes | flutter doctor --android-licenses || true
+
       - name: Static Code Analysis
         # Enforce coding rules and lint checks
         run: flutter analyze
 
       - name: Build Debug APK
-        # Verifies compilation succeeds
-        run: flutter build apk --debug
+        # Verifies compilation succeeds with build-time constants
+        run: flutter build apk --debug --dart-define=SUPABASE_URL=https://xyczocswufelhpcrmjow.supabase.co --dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
