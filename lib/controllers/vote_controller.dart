@@ -121,6 +121,10 @@ class VoteController extends GetxController {
       election.value!.isActive &&
       !hasVoted.value;
 
+  bool get isResultsAvailable =>
+      election.value != null &&
+      (election.value!.isPublished || election.value!.liveResultsEnabled);
+
   @override
   Future<void> refresh() => loadVotingData();
 }

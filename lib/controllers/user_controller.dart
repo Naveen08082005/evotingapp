@@ -15,11 +15,13 @@ class UserController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxBool isVerifying = false.obs;
   final RxString searchQuery = ''.obs;
+  final RxString statusFilter = 'all'.obs;
 
   @override
   void onInit() {
     super.onInit();
     ever(searchQuery, (_) => _applyFilter());
+    ever(statusFilter, (_) => _applyFilter());
   }
 
   Future<void> loadUsers() async {
@@ -41,17 +43,26 @@ class UserController extends GetxController {
   }
 
   void _applyFilter() {
-    if (searchQuery.value.isEmpty) {
-      filteredUsers.value = users.toList();
-      return;
+    var list = users.toList();
+    if (searchQuery.value.isNotEmpty) {
+      final q = searchQuery.value.toLowerCase();
+      list = list.where((u) =>
+        u.fullName.toLowerCase().contains(q) ||
+        u.registerNumber.toLowerCase().contains(q) ||
+        u.email.toLowerCase().contains(q) ||
+        u.department.toLowerCase().contains(q),
+      ).toList();
     }
-    final q = searchQuery.value.toLowerCase();
-    filteredUsers.value = users.where((u) =>
-      u.fullName.toLowerCase().contains(q) ||
-      u.registerNumber.toLowerCase().contains(q) ||
-      u.email.toLowerCase().contains(q) ||
-      u.department.toLowerCase().contains(q),
-    ).toList();
+
+    if (statusFilter.value == 'verified') {
+      list = list.where((u) => u.isVerified).toList();
+    } else if (statusFilter.value == 'unverified') {
+      list = list.where((u) => !u.isVerified).toList();
+    } else if (statusFilter.value == 'voted') {
+      list = list.where((u) => u.hasVoted).toList();
+    }
+
+    filteredUsers.value = list;
   }
 
   // ─── Verify user (by admin) ────────────────────────────────────────────────
@@ -74,6 +85,35 @@ class UserController extends GetxController {
           userId,
         );
       } catch (_) {}
+    } catch (e) {
+      Get.snackbar('Error', e.toString(), snackPosition: SnackPosition.BOTTOM);
+    }
+  }
+
+  // ─── Unverify / Reject user (by admin) ────────────────────────────────────
+  Future<void> unverifyUser(String userId) async {
+    try {
+      await _userRepo.unverifyUser(userId);
+      final idx = users.indexWhere((u) => u.id == userId);
+      if (idx != -1) {
+        users[idx] = users[idx].copyWith(isVerified: false);
+        _applyFilter();
+      }
+      Get.snackbar('Unverified', 'User verification revoked.',
+          snackPosition: SnackPosition.BOTTOM);
+    } catch (e) {
+      Get.snackbar('Error', e.toString(), snackPosition: SnackPosition.BOTTOM);
+    }
+  }
+
+  // ─── Delete / Remove user (by admin) ──────────────────────────────────────
+  Future<void> deleteUser(String userId) async {
+    try {
+      await _userRepo.deleteUser(userId);
+      users.removeWhere((u) => u.id == userId);
+      _applyFilter();
+      Get.snackbar('Removed', 'User removed from system.',
+          snackPosition: SnackPosition.BOTTOM);
     } catch (e) {
       Get.snackbar('Error', e.toString(), snackPosition: SnackPosition.BOTTOM);
     }
@@ -124,10 +164,12 @@ class UserController extends GetxController {
   }
 
   void search(String q) => searchQuery.value = q;
+  void setFilter(String f) => statusFilter.value = f;
   @override
   Future<void> refresh() => loadUsers();
 
   int get totalUsers => users.length;
   int get votedCount => users.where((u) => u.hasVoted).length;
   int get verifiedCount => users.where((u) => u.isVerified).length;
+  int get unverifiedCount => users.where((u) => !u.isVerified).length;
 }

@@ -3,6 +3,7 @@ import '../controllers/vote_controller.dart';
 import '../controllers/user_controller.dart';
 import '../controllers/election_controller.dart';
 import '../controllers/candidate_controller.dart';
+import '../controllers/notification_controller.dart';
 
 class UserBinding extends Bindings {
   @override
@@ -11,5 +12,6 @@ class UserBinding extends Bindings {
     Get.lazyPut<UserController>(() => UserController(), fenix: true);
     Get.lazyPut<ElectionController>(() => ElectionController(), fenix: true);
     Get.lazyPut<CandidateController>(() => CandidateController(), fenix: true);
+    Get.lazyPut<NotificationController>(() => NotificationController(), fenix: true);
   }
 }

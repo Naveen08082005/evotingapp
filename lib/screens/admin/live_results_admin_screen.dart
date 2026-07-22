@@ -90,7 +90,69 @@ class LiveResultsAdminScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              // Winner Spotlight
+              if (approved.isNotEmpty && approved.first.voteCount > 0) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: AppColors.primaryGradient),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const CircleAvatar(
+                        radius: 26,
+                        backgroundColor: Colors.white24,
+                        child: Text('🏆', style: TextStyle(fontSize: 28)),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'LEADING CANDIDATE / WINNER',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'Poppins',
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            Text(
+                              approved.first.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                            Text(
+                              '${approved.first.position} • ${approved.first.voteCount} Votes',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
 
               // Bar Chart
               const Text(

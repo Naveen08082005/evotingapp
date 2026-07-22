@@ -96,13 +96,14 @@ class ElectionSettingsScreen extends StatelessWidget {
               if (el == null) ...[
                 _CreateElectionCard(controller: controller),
               ] else ...[
+                // Start / Stop Election Buttons
                 if (el.isPending)
                   CustomButton(
                     text: 'Start Election',
                     onPressed: () => _confirmAction(
                       context,
                       'Start Election',
-                      'This will allow students to start voting.',
+                      'This will allow verified students to cast their votes.',
                       () => controller.startElection(),
                     ),
                     isLoading: controller.isProcessing.value,
@@ -115,21 +116,75 @@ class ElectionSettingsScreen extends StatelessWidget {
                     onPressed: () => _confirmAction(
                       context,
                       'Stop Election',
-                      'This will end voting and finalize results.',
+                      'This will close voting and prevent any further vote submissions.',
                       () => controller.stopElection(),
                     ),
                     isLoading: controller.isProcessing.value,
                     color: AppColors.error,
                     icon: Icons.stop_circle_rounded,
                   ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
+
+                // Publish Results Button
+                CustomButton(
+                  text: el.isPublished ? 'Unpublish Results' : 'Publish Official Results',
+                  onPressed: () => _confirmAction(
+                    context,
+                    el.isPublished ? 'Unpublish Results' : 'Publish Results',
+                    el.isPublished
+                        ? 'Students will no longer see official results.'
+                        : 'Official results will become visible to all students on their dashboards.',
+                    () => controller.publishResults(!el.isPublished),
+                  ),
+                  isLoading: controller.isProcessing.value,
+                  color: el.isPublished ? AppColors.warning : AppColors.primary,
+                  icon: el.isPublished ? Icons.visibility_off_rounded : Icons.published_with_changes_rounded,
+                ),
+                const SizedBox(height: 12),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _showEditElectionDialog(context, controller, el.title, el.description ?? ''),
+                        icon: const Icon(Icons.edit_rounded),
+                        label: const Text('Edit Title'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _confirmAction(
+                          context,
+                          'Delete Election',
+                          'Are you sure you want to delete "${el.title}"? This cannot be undone.',
+                          () => controller.deleteElection(),
+                          isDangerous: true,
+                        ),
+                        icon: const Icon(Icons.delete_forever_rounded, color: AppColors.error),
+                        label: const Text('Delete', style: TextStyle(color: AppColors.error)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          side: const BorderSide(color: AppColors.error),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
                 if (!el.isPending)
                   CustomButton(
-                    text: 'Reset Election',
+                    text: 'Reset All Votes & Reset Status',
                     onPressed: () => _confirmAction(
                       context,
                       'Reset Election',
-                      'This will erase ALL votes and reset the system. This cannot be undone.',
+                      'This will erase ALL votes and reset candidate vote counts to 0. This CANNOT be undone.',
                       () => controller.resetElection(),
                       isDangerous: true,
                     ),
@@ -140,12 +195,12 @@ class ElectionSettingsScreen extends StatelessWidget {
                   ),
                 const SizedBox(height: 20),
 
-                // Live Results toggle
-                const _SectionLabel('Live Results'),
+                // Live Results & Publication settings
+                const _SectionLabel('Visibility & Results Settings'),
                 const SizedBox(height: 10),
                 _ToggleCard(
                   title: 'Enable Live Results',
-                  subtitle: 'Allow students to view real-time vote counts',
+                  subtitle: 'Allow students to view real-time vote counts while election is running',
                   value: controller.liveResultsEnabled,
                   onChanged: (val) => controller.toggleLiveResults(val),
                 ),
@@ -174,6 +229,59 @@ class ElectionSettingsScreen extends StatelessWidget {
           ),
         );
       }),
+    );
+  }
+
+  void _showEditElectionDialog(
+    BuildContext context,
+    ElectionController controller,
+    String currentTitle,
+    String currentDesc,
+  ) {
+    final titleCtrl = TextEditingController(text: currentTitle);
+    final descCtrl = TextEditingController(text: currentDesc);
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Edit Election Details'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleCtrl,
+              decoration: InputDecoration(
+                labelText: 'Election Title',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: descCtrl,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: 'Description (Optional)',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              if (titleCtrl.text.trim().isNotEmpty) {
+                Get.back();
+                controller.editElection(
+                  titleCtrl.text.trim(),
+                  description: descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
+                );
+              }
+            },
+            child: const Text('Save Changes'),
+          ),
+        ],
+      ),
     );
   }
 

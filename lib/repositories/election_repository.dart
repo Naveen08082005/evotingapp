@@ -117,6 +117,36 @@ class ElectionRepository {
     }
   }
 
+  // ─── Delete election ───────────────────────────────────────────────────────
+  Future<void> deleteElection(String electionId) async {
+    try {
+      await _client
+          .from(SupabaseConstants.electionsTable)
+          .delete()
+          .eq('id', electionId);
+    } catch (e) {
+      throw DatabaseException(parseSupabaseError(e));
+    }
+  }
+
+  // ─── Publish results ───────────────────────────────────────────────────────
+  Future<ElectionModel> publishResults(String electionId, bool published) async {
+    try {
+      final response = await _client
+          .from(SupabaseConstants.electionsTable)
+          .update({
+            'is_published': published,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', electionId)
+          .select()
+          .single();
+      return ElectionModel.fromJson(response);
+    } catch (e) {
+      throw DatabaseException(parseSupabaseError(e));
+    }
+  }
+
   // ─── Get verification settings ─────────────────────────────────────────────
   Future<VerificationSettingsModel?> getVerificationSettings() async {
     try {

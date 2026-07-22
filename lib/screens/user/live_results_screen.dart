@@ -43,35 +43,35 @@ class LiveResultsScreen extends StatelessWidget {
           );
         }
 
+        final isPublished = voteController.election.value?.isPublished ?? false;
+        final isCompleted = voteController.election.value?.isCompleted ?? false;
+
         return SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Live indicator
+              // Header Badge (Official / Live)
               Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.15),
+                      color: (isPublished || isCompleted ? AppColors.primary : AppColors.success).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: AppColors.success,
-                            shape: BoxShape.circle,
-                          ),
+                        Icon(
+                          isPublished || isCompleted ? Icons.verified_rounded : Icons.fiber_manual_record,
+                          color: isPublished || isCompleted ? AppColors.primary : AppColors.success,
+                          size: 14,
                         ),
                         const SizedBox(width: 6),
-                        const Text(
-                          'LIVE',
+                        Text(
+                          isPublished || isCompleted ? 'OFFICIAL RESULTS' : 'LIVE FEED',
                           style: TextStyle(
-                            color: AppColors.success,
+                            color: isPublished || isCompleted ? AppColors.primary : AppColors.success,
                             fontWeight: FontWeight.w800,
                             fontFamily: 'Poppins',
                             fontSize: 12,
@@ -82,7 +82,7 @@ class LiveResultsScreen extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    '$totalVotes total votes',
+                    '$totalVotes total votes cast',
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontFamily: 'Poppins',
@@ -92,7 +92,80 @@ class LiveResultsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
+              // Winner Spotlight Banner
+              if (approved.isNotEmpty && (isPublished || isCompleted || totalVotes > 0)) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: AppColors.primaryGradient),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const CircleAvatar(
+                        radius: 28,
+                        backgroundColor: Colors.white24,
+                        child: Text('🏆', style: TextStyle(fontSize: 32)),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isCompleted || isPublished ? 'WINNER / ELECTION LEADER' : 'CURRENT LEADER',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'Poppins',
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            Text(
+                              approved.first.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                            Text(
+                              '${approved.first.position} • ${approved.first.department} • ${approved.first.voteCount} Votes',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
               // Bar chart
+              const Text(
+                'Vote Distribution',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              const SizedBox(height: 10),
               Container(
                 height: 220,
                 padding: const EdgeInsets.all(16),
@@ -107,9 +180,33 @@ class LiveResultsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
-              // Candidate results
+              // Pie chart breakdown
               const Text(
-                'Results',
+                'Percentage Breakdown',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                height: 220,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: VotePieChart(
+                  candidates: voteController.candidates,
+                  totalVotes: totalVotes,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Candidate results ranking
+              const Text(
+                'Candidate Ranking',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,

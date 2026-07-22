@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS public.elections (
     status                TEXT NOT NULL DEFAULT 'pending'
                               CHECK (status IN ('pending', 'active', 'completed')),
     live_results_enabled  BOOLEAN NOT NULL DEFAULT FALSE,
+    is_published          BOOLEAN NOT NULL DEFAULT FALSE,
     started_at            TIMESTAMPTZ,
     ended_at              TIMESTAMPTZ,
     created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),

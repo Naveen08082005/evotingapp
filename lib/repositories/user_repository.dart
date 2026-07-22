@@ -145,6 +145,30 @@ class UserRepository {
     }
   }
 
+  // ── Mark user as unverified / rejected ────────────────────────────────────
+  Future<void> unverifyUser(String userId) async {
+    try {
+      await _client
+          .from(SupabaseConstants.usersTable)
+          .update({'is_verified': false, 'updated_at': DateTime.now().toIso8601String()})
+          .eq('id', userId);
+    } catch (e) {
+      throw DatabaseException(parseSupabaseError(e));
+    }
+  }
+
+  // ── Delete user (admin action) ─────────────────────────────────────────────
+  Future<void> deleteUser(String userId) async {
+    try {
+      await _client
+          .from(SupabaseConstants.usersTable)
+          .delete()
+          .eq('id', userId);
+    } catch (e) {
+      throw DatabaseException(parseSupabaseError(e));
+    }
+  }
+
   // ── Mark user as voted ─────────────────────────────────────────────────────
   Future<void> markUserVoted(String userId) async {
     try {

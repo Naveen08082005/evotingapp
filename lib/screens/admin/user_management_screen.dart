@@ -53,25 +53,16 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               ),
             ),
           ),
-          // Summary chips
-          Obx(() => Padding(
+          // Filter chips
+          Obx(() => SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
-                    _SummaryChip(
-                      label: 'Total: ${_userController.totalUsers}',
-                      color: AppColors.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    _SummaryChip(
-                      label: 'Voted: ${_userController.votedCount}',
-                      color: AppColors.success,
-                    ),
-                    const SizedBox(width: 8),
-                    _SummaryChip(
-                      label: 'Verified: ${_userController.verifiedCount}',
-                      color: AppColors.secondary,
-                    ),
+                    _filterChip('all', 'All (${_userController.totalUsers})'),
+                    _filterChip('verified', 'Verified (${_userController.verifiedCount})'),
+                    _filterChip('unverified', 'Unverified (${_userController.unverifiedCount})'),
+                    _filterChip('voted', 'Voted (${_userController.votedCount})'),
                   ],
                 ),
               )),
@@ -85,7 +76,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 return const EmptyStateWidget(
                   icon: Icons.people_outline_rounded,
                   title: 'No Users Found',
-                  subtitle: 'No students are registered yet.',
+                  subtitle: 'No student profiles match your filter.',
                 );
               }
               return RefreshIndicator(
@@ -93,11 +84,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 child: ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   itemCount: _userController.filteredUsers.length,
-                  itemBuilder: (_, i) => _UserTile(
-                    user: _userController.filteredUsers[i],
-                    onVerify: () => _userController
-                        .verifyUser(_userController.filteredUsers[i].id),
-                  ),
+                  itemBuilder: (_, i) {
+                    final u = _userController.filteredUsers[i];
+                    return _UserTile(
+                      user: u,
+                      onVerify: () => _userController.verifyUser(u.id),
+                      onUnverify: () => _userController.unverifyUser(u.id),
+                      onDelete: () => _confirmDeleteUser(context, u),
+                    );
+                  },
                 ),
               );
             }),
@@ -106,38 +101,56 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       ),
     );
   }
-}
 
-class _SummaryChip extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _SummaryChip({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+  Widget _filterChip(String key, String label) {
+    final selected = _userController.statusFilter.value == key;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (_) => _userController.setFilter(key),
+        selectedColor: AppColors.primary.withValues(alpha: 0.15),
+        checkmarkColor: AppColors.primary,
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          fontFamily: 'Poppins',
-        ),
+    );
+  }
+
+  void _confirmDeleteUser(BuildContext context, UserModel user) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Remove Student'),
+        content: Text('Are you sure you want to remove "${user.fullName}" (${user.registerNumber})?'),
+        actions: [
+          TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              Get.back();
+              _userController.deleteUser(user.id);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Remove', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }
 }
 
+
 class _UserTile extends StatelessWidget {
   final UserModel user;
   final VoidCallback onVerify;
-  const _UserTile({required this.user, required this.onVerify});
+  final VoidCallback onUnverify;
+  final VoidCallback onDelete;
+
+  const _UserTile({
+    required this.user,
+    required this.onVerify,
+    required this.onUnverify,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -208,13 +221,24 @@ class _UserTile extends StatelessWidget {
               ],
             ),
           ),
-          if (!user.isVerified)
-            IconButton(
-              icon: const Icon(Icons.verified_user_rounded,
-                  color: AppColors.success),
-              onPressed: onVerify,
-              tooltip: 'Verify User',
-            ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded),
+            onSelected: (val) {
+              if (val == 'verify') onVerify();
+              if (val == 'unverify') onUnverify();
+              if (val == 'delete') onDelete();
+            },
+            itemBuilder: (_) => [
+              if (!user.isVerified)
+                const PopupMenuItem(value: 'verify', child: Text('✅ Verify Student'))
+              else
+                const PopupMenuItem(value: 'unverify', child: Text('⚠️ Revoke Verification')),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Text('🗑️ Delete Student', style: TextStyle(color: AppColors.error)),
+              ),
+            ],
+          ),
         ],
       ),
     );

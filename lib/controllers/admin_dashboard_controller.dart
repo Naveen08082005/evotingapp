@@ -103,8 +103,11 @@ class AdminDashboardController extends GetxController {
   // ─── Stats ─────────────────────────────────────────────────────────────────
   int get totalCandidates => candidates.length;
   int get totalUsers => users.length;
+  int get verifiedUsers => users.where((u) => u.isVerified).length;
+  int get unverifiedUsers => users.where((u) => !u.isVerified).length;
   int get approvedCandidates => candidates.where((c) => c.isApproved).length;
   int get pendingCandidates => candidates.where((c) => c.isPending).length;
+  int get pendingApprovals => pendingCandidates + unverifiedUsers;
 
   double get turnoutRate {
     if (users.isEmpty) return 0;

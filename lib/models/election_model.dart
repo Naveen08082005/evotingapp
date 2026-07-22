@@ -4,6 +4,7 @@ class ElectionModel {
   final String? description;
   final String status; // pending, active, completed
   final bool liveResultsEnabled;
+  final bool isPublished;
   final DateTime? startedAt;
   final DateTime? endedAt;
   final DateTime createdAt;
@@ -15,6 +16,7 @@ class ElectionModel {
     this.description,
     this.status = 'pending',
     this.liveResultsEnabled = false,
+    this.isPublished = false,
     this.startedAt,
     this.endedAt,
     required this.createdAt,
@@ -33,6 +35,7 @@ class ElectionModel {
       description: json['description'] as String?,
       status: json['status'] as String? ?? 'pending',
       liveResultsEnabled: json['live_results_enabled'] as bool? ?? false,
+      isPublished: json['is_published'] as bool? ?? false,
       startedAt: rawStarted != null ? DateTime.parse(rawStarted as String) : null,
       endedAt: rawEnded != null ? DateTime.parse(rawEnded as String) : null,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -49,6 +52,7 @@ class ElectionModel {
       if (description != null) 'description': description,
       'status': status,
       'live_results_enabled': liveResultsEnabled,
+      'is_published': isPublished,
       if (startedAt != null) 'started_at': startedAt!.toIso8601String(),
       if (endedAt != null) 'ended_at': endedAt!.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
@@ -66,6 +70,7 @@ class ElectionModel {
     String? description,
     String? status,
     bool? liveResultsEnabled,
+    bool? isPublished,
     DateTime? startedAt,
     DateTime? endedAt,
     DateTime? createdAt,
@@ -77,6 +82,7 @@ class ElectionModel {
       description: description ?? this.description,
       status: status ?? this.status,
       liveResultsEnabled: liveResultsEnabled ?? this.liveResultsEnabled,
+      isPublished: isPublished ?? this.isPublished,
       startedAt: startedAt ?? this.startedAt,
       endedAt: endedAt ?? this.endedAt,
       createdAt: createdAt ?? this.createdAt,
@@ -93,6 +99,7 @@ class ElectionModel {
         other.description == description &&
         other.status == status &&
         other.liveResultsEnabled == liveResultsEnabled &&
+        other.isPublished == isPublished &&
         other.startedAt == startedAt &&
         other.endedAt == endedAt &&
         other.createdAt == createdAt &&
@@ -107,6 +114,7 @@ class ElectionModel {
       description,
       status,
       liveResultsEnabled,
+      isPublished,
       startedAt,
       endedAt,
       createdAt,

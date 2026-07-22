@@ -58,9 +58,64 @@ class AdminDashboardScreen extends StatelessWidget {
                 _ElectionStatusBanner(election: election),
                 const SizedBox(height: 24),
 
+                // Quick Actions
+                const Text(
+                  'Quick Actions',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _QuickActionTile(
+                        icon: Icons.how_to_vote_rounded,
+                        title: 'Election',
+                        subtitle: 'Controls',
+                        color: AppColors.primary,
+                        onTap: () => Get.toNamed(AppRoutes.electionSettings),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _QuickActionTile(
+                        icon: Icons.person_pin_rounded,
+                        title: 'Candidates',
+                        subtitle: 'Manage',
+                        color: AppColors.secondary,
+                        onTap: () => Get.toNamed(AppRoutes.candidateManagement),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _QuickActionTile(
+                        icon: Icons.people_alt_rounded,
+                        title: 'Students',
+                        subtitle: 'Verify',
+                        color: AppColors.success,
+                        onTap: () => Get.toNamed(AppRoutes.userManagement),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _QuickActionTile(
+                        icon: Icons.bar_chart_rounded,
+                        title: 'Results',
+                        subtitle: 'Live Feed',
+                        color: AppColors.accent,
+                        onTap: () => Get.toNamed(AppRoutes.liveResultsAdmin),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
                 // Stats Grid
                 const Text(
-                  'Overview',
+                  'Overview Metrics',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -70,35 +125,47 @@ class AdminDashboardScreen extends StatelessWidget {
                 const SizedBox(height: 14),
                 Obx(() => GridView.count(
                       crossAxisCount: 2,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       childAspectRatio: 1.4,
                       children: [
                         StatsCard(
-                          title: 'Total Users',
+                          title: 'Total Students',
                           value: '${dashboard.totalUsers}',
-                          icon: Icons.people_alt_rounded,
+                          icon: Icons.school_rounded,
                           gradient: AppColors.primaryGradient,
                         ),
                         StatsCard(
-                          title: 'Candidates',
+                          title: 'Verified Students',
+                          value: '${dashboard.verifiedUsers}',
+                          icon: Icons.verified_user_rounded,
+                          gradient: AppColors.successGradient,
+                        ),
+                        StatsCard(
+                          title: 'Total Candidates',
                           value: '${dashboard.totalCandidates}',
                           icon: Icons.person_pin_rounded,
-                          gradient: AppColors.successGradient,
+                          gradient: AppColors.adminGradient,
                         ),
                         StatsCard(
                           title: 'Total Votes',
                           value: '${dashboard.totalVotes.value}',
                           icon: Icons.how_to_vote_rounded,
-                          gradient: AppColors.adminGradient,
+                          gradient: const [AppColors.secondary, AppColors.secondaryDark],
                         ),
                         StatsCard(
-                          title: 'Turnout',
+                          title: 'Turnout %',
                           value: '${dashboard.turnoutRate.toStringAsFixed(1)}%',
                           icon: Icons.trending_up_rounded,
-                          gradient: const [AppColors.secondary, AppColors.secondaryDark],
+                          gradient: AppColors.primaryGradient,
+                        ),
+                        StatsCard(
+                          title: 'Pending Approvals',
+                          value: '${dashboard.pendingApprovals}',
+                          icon: Icons.hourglass_top_rounded,
+                          gradient: const [Color(0xFFFF9800), Color(0xFFF57C00)],
                         ),
                       ],
                     )),
@@ -403,6 +470,65 @@ class _AdminDrawer extends StatelessWidget {
         ),
       ),
       onTap: onTap,
+    );
+  }
+}
+
+class _QuickActionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _QuickActionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: isDark ? 0.15 : 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 6),
+            Text(
+              title,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                fontFamily: 'Poppins',
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: color.withValues(alpha: 0.7),
+                fontSize: 10,
+                fontFamily: 'Poppins',
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -142,6 +142,62 @@ class ElectionController extends GetxController {
     }
   }
 
+  // ─── Edit election ─────────────────────────────────────────────────────────
+  Future<void> editElection(String title, {String? description}) async {
+    if (election.value == null) return;
+    try {
+      isProcessing.value = true;
+      election.value = await _electionRepo.updateElection(election.value!.id, {
+        'title': title,
+        if (description != null) 'description': description,
+      });
+      Get.snackbar('Success', 'Election updated.', snackPosition: SnackPosition.BOTTOM);
+    } catch (e) {
+      Get.snackbar('Error', e.toString(), snackPosition: SnackPosition.BOTTOM);
+    } finally {
+      isProcessing.value = false;
+    }
+  }
+
+  // ─── Delete election ───────────────────────────────────────────────────────
+  Future<void> deleteElection() async {
+    if (election.value == null) return;
+    try {
+      isProcessing.value = true;
+      await _electionRepo.deleteElection(election.value!.id);
+      election.value = null;
+      Get.snackbar('Deleted', 'Election deleted.', snackPosition: SnackPosition.BOTTOM);
+    } catch (e) {
+      Get.snackbar('Error', e.toString(), snackPosition: SnackPosition.BOTTOM);
+    } finally {
+      isProcessing.value = false;
+    }
+  }
+
+  // ─── Publish results ───────────────────────────────────────────────────────
+  Future<void> publishResults(bool publish) async {
+    if (election.value == null) return;
+    try {
+      isProcessing.value = true;
+      election.value = await _electionRepo.publishResults(election.value!.id, publish);
+      final msg = publish ? 'Results are now published for all students!' : 'Results unpublished.';
+      Get.snackbar('Results', msg, snackPosition: SnackPosition.BOTTOM);
+
+      if (publish) {
+        try {
+          await Get.find<NotificationController>().sendGlobalNotification(
+            'Election Results Published!',
+            'The official results for "${election.value!.title}" have been published by the administration.',
+          );
+        } catch (_) {}
+      }
+    } catch (e) {
+      Get.snackbar('Error', e.toString(), snackPosition: SnackPosition.BOTTOM);
+    } finally {
+      isProcessing.value = false;
+    }
+  }
+
   // ─── Toggle live results ───────────────────────────────────────────────────
   Future<void> toggleLiveResults(bool enabled) async {
     if (election.value == null) return;
@@ -175,4 +231,5 @@ class ElectionController extends GetxController {
   bool get isElectionPending => election.value?.isPending ?? true;
   bool get isElectionCompleted => election.value?.isCompleted ?? false;
   bool get liveResultsEnabled => election.value?.liveResultsEnabled ?? false;
+  bool get isPublished => election.value?.isPublished ?? false;
 }

@@ -117,23 +117,31 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                 _ElectionStatusCard(election: election),
                 const SizedBox(height: 20),
 
-                // Verification / Vote status
-                if (election?.isActive ?? false) ...[
-                  if (hasVoted)
-                    _AlreadyVotedBanner()
-                  else if (!isVerified)
-                    _VerifyNowBanner()
-                  else
-                    _VoteNowBanner(),
+                // Verification / Vote status / State Banners
+                if (election != null) ...[
+                  if (election.isPending)
+                    _ElectionPendingBanner()
+                  else if (election.isCompleted)
+                    _ElectionEndedBanner(
+                      isPublished: election.isPublished || election.liveResultsEnabled,
+                    )
+                  else if (election.isActive) ...[
+                    if (hasVoted)
+                      _AlreadyVotedBanner()
+                    else if (!isVerified)
+                      _VerifyNowBanner()
+                    else
+                      _VoteNowBanner(),
+                  ],
                   const SizedBox(height: 20),
                 ],
 
                 // Live Results button
-                if ((election?.liveResultsEnabled ?? false)) ...[
+                if (election != null && (election.isPublished || election.liveResultsEnabled)) ...[
                   _ActionCard(
                     icon: Icons.bar_chart_rounded,
-                    title: 'Live Results',
-                    subtitle: 'View real-time vote counts',
+                    title: election.isCompleted ? 'View Official Election Results' : 'Live Election Results',
+                    subtitle: election.isCompleted ? 'Check final vote counts and winner' : 'View real-time vote counts',
                     color: AppColors.secondary,
                     onTap: () => Get.toNamed(AppRoutes.liveResults),
                   ),
@@ -365,6 +373,99 @@ class _AlreadyVotedBanner extends StatelessWidget {
                   'Thank you for participating!',
                   style: TextStyle(
                     color: AppColors.success,
+                    fontFamily: 'Poppins',
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ElectionPendingBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.hourglass_top_rounded, color: AppColors.warning, size: 30),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Election Has Not Started',
+                  style: TextStyle(
+                    color: AppColors.warning,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Poppins',
+                    fontSize: 15,
+                  ),
+                ),
+                Text(
+                  'Voting will open as scheduled by college administration.',
+                  style: TextStyle(
+                    color: AppColors.warning,
+                    fontFamily: 'Poppins',
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ElectionEndedBanner extends StatelessWidget {
+  final bool isPublished;
+  const _ElectionEndedBanner({required this.isPublished});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline_rounded, color: AppColors.primary, size: 30),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Election Has Ended',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Poppins',
+                    fontSize: 15,
+                  ),
+                ),
+                Text(
+                  isPublished
+                      ? 'Official results have been published! Tap below to view results.'
+                      : 'Voting is closed. Official results pending admin publication.',
+                  style: const TextStyle(
+                    color: AppColors.primary,
                     fontFamily: 'Poppins',
                     fontSize: 13,
                   ),
