@@ -1,0 +1,131 @@
+name: K6 Load Tests
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'load-tests/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'load-tests/**'
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: 'Test scenario to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - login
+          - register
+          - vote
+          - full_system
+
+env:
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+jobs:
+  load-test:
+    name: Run K6 Load Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring \
+            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Create results directory
+        run: mkdir -p load-tests/results
+
+      - name: Run Login Load Test
+        if: ${{ github.event.inputs.scenario == 'login' || github.event.inputs.scenario == 'all' || github.event.inputs.scenario == '' }}
+        run: |
+          k6 run load-tests/login_test.js \
+            --out json=load-tests/results/summary_login_test.json \
+            --env SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+            --env SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
+            || true
+        continue-on-error: true
+
+      - name: Run Register Load Test
+        if: ${{ github.event.inputs.scenario == 'register' || github.event.inputs.scenario == 'all' || github.event.inputs.scenario == '' }}
+        run: |
+          k6 run load-tests/register_test.js \
+            --out json=load-tests/results/summary_register_test.json \
+            --env SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+            --env SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
+            || true
+        continue-on-error: true
+
+      - name: Run Vote Load Test
+        if: ${{ github.event.inputs.scenario == 'vote' || github.event.inputs.scenario == 'all' || github.event.inputs.scenario == '' }}
+        run: |
+          k6 run load-tests/vote_test.js \
+            --out json=load-tests/results/summary_vote_test.json \
+            --env SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+            --env SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
+            || true
+        continue-on-error: true
+
+      - name: Run Full System Load Test
+        if: ${{ github.event.inputs.scenario == 'full_system' || github.event.inputs.scenario == 'all' || github.event.inputs.scenario == '' }}
+        run: |
+          k6 run load-tests/full_system_test.js \
+            --out json=load-tests/results/summary_full_system_test.json \
+            --env SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+            --env SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
+            || true
+        continue-on-error: true
+
+      - name: Upload Load Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k6-load-test-results
+          path: load-tests/results/
+          retention-days: 30
+
+      - name: Print Test Summary
+        if: always()
+        run: |
+          echo "=========================================="
+          echo "  K6 Load Test Results Summary"
+          echo "=========================================="
+          for f in load-tests/results/summary_*.json; do
+            if [ -f "$f" ]; then
+              echo ""
+              echo "Results for: $f"
+              echo "------------------------------------------"
+              cat "$f" | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          metrics = data.get('metrics', {})
+          http_reqs = metrics.get('http_reqs', {})
+          http_req_dur = metrics.get('http_req_duration', {})
+          http_req_failed = metrics.get('http_req_failed', {})
+          print(f'  Total Requests  : {http_reqs.get(\"count\", \"N/A\")}')
+          print(f'  Avg Duration    : {http_req_dur.get(\"avg\", 0):.2f}ms')
+          print(f'  P95 Duration    : {http_req_dur.get(\"p(95)\", 0):.2f}ms')
+          print(f'  Max Duration    : {http_req_dur.get(\"max\", 0):.2f}ms')
+          print(f'  Failed Rate     : {http_req_failed.get(\"value\", 0)*100:.2f}%')
+          " 2>/dev/null || echo "  (JSON parse skipped — raw file may be NDJSON)"
+            fi
+          done
+          echo ""
+          echo "=========================================="
+          echo "  Full results available in Artifacts tab"
+          echo "=========================================="

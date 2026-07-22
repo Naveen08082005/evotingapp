@@ -35,5 +35,10 @@ flutter_*.png
 # Artifacts
 *.apk
 *.ipa
+# Load test binaries (too large for GitHub)
+load-tests/*.exe
+load-tests/*.zip
+load-tests/bin/
+load-tests/k6-extracted/
 # VS Code
 .settings/
