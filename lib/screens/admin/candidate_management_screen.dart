@@ -124,17 +124,44 @@ class CandidateManagementScreen extends StatelessWidget {
                               ),
                             ),
                           ),
-                          if (c.status == 'pending')
-                            PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert_rounded),
-                              onSelected: (value) async {
-                                await Get.find<CandidateController>().updateStatus(c.id, value);
-                              },
-                              itemBuilder: (_) => [
-                                const PopupMenuItem(value: 'approved', child: Text('Approve')),
-                                const PopupMenuItem(value: 'rejected', child: Text('Reject')),
-                              ],
-                            ),
+                          PopupMenuButton<String>(
+                            icon: const Icon(Icons.more_vert_rounded),
+                            onSelected: (value) async {
+                              if (value == 'edit') {
+                                Get.toNamed(AppRoutes.addEditCandidate, arguments: c);
+                              } else if (value == 'delete') {
+                                final confirm = await _confirmDelete(context, c.name);
+                                if (confirm == true) {
+                                  controller.deleteCandidate(c.id);
+                                }
+                              } else {
+                                await controller.updateStatus(c.id, value);
+                              }
+                            },
+                            itemBuilder: (_) => [
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Text('✏️ Edit Candidate'),
+                              ),
+                              if (c.status != 'approved')
+                                const PopupMenuItem(
+                                  value: 'approved',
+                                  child: Text('✅ Approve Candidate'),
+                                ),
+                              if (c.status != 'rejected')
+                                const PopupMenuItem(
+                                  value: 'rejected',
+                                  child: Text('❌ Reject Candidate'),
+                                ),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Text(
+                                  '🗑️ Delete Candidate',
+                                  style: TextStyle(color: AppColors.error),
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     );

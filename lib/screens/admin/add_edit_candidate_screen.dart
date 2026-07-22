@@ -113,15 +113,43 @@ class _AddEditCandidateScreenState extends State<AddEditCandidateScreen> {
         actions: _isEdit && _editingCandidate != null
             ? [
                 PopupMenuButton<String>(
-                  onSelected: (val) {
-                    Get.find<CandidateController>()
-                        .updateStatus(_editingCandidate!.id, val);
-                    Get.back();
+                  onSelected: (val) async {
+                    if (val == 'delete') {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: const Text('Delete Candidate'),
+                          content: Text('Delete "${_editingCandidate!.name}"? This cannot be undone.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Get.back(result: false),
+                              child: const Text('Cancel'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => Get.back(result: true),
+                              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+                              child: const Text('Delete', style: TextStyle(color: Colors.white)),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        await _candidateController.deleteCandidate(_editingCandidate!.id);
+                        Get.back();
+                      }
+                    } else {
+                      await _candidateController.updateStatus(_editingCandidate!.id, val);
+                      Get.back();
+                    }
                   },
                   itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'approved', child: Text('✅ Approve')),
-                    const PopupMenuItem(value: 'rejected', child: Text('❌ Reject')),
+                    const PopupMenuItem(value: 'approved', child: Text('✅ Approve Candidate')),
+                    const PopupMenuItem(value: 'rejected', child: Text('❌ Reject Candidate')),
                     const PopupMenuItem(value: 'pending', child: Text('⏳ Set Pending')),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Text('🗑️ Delete Candidate', style: TextStyle(color: AppColors.error)),
+                    ),
                   ],
                 ),
               ]
