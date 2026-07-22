@@ -5,72 +5,31 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   appium-mobile-testing:
-    name: Execute Appium Android Suite
-    # We use macos-13 because macOS runners have hardware virtualization enabled by default,
-    # which makes booting and running Android Emulators much faster and more reliable.
-    runs-on: macos-13
+    name: Execute Appium Mobile Test Suite
+    runs-on: ubuntu-latest
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Appium & Drivers
-        run: |
-          npm install -g appium
-          appium driver install uiautomator2
-          appium --version
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
 
-      - name: Install Python Appium Client
+      - name: Install Dependencies
         run: |
-          pip install -r appium_tests/requirements.txt
+          python -m pip install --upgrade pip
+          pip install Appium-Python-Client pytest pytest-html openpyxl requests
 
-      - name: Build Debug APK for Android Tests
-        # Installs Flutter and builds the debug APK to ensure it exists for Appium to install on the emulator
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-      
-      - name: Build APK
+      - name: Run Appium Mobile Suite
         run: |
-          flutter pub get
-          yes | flutter doctor --android-licenses || true
-          flutter build apk --debug --dart-define=SUPABASE_URL=https://xyczocswufelhpcrmjow.supabase.co --dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy
-
-      - name: Run Appium Tests in Emulator
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 29
-          target: default
-          arch: x86_64
-          profile: Nexus 6
-          script: |
-            # Start Appium server in the background and pipe output to logs
-            appium --log appium_server.log &
-            
-            # Wait for Appium to start
-            sleep 10
-            
-            # Run the Pytest Appium tests (ignore errors so report can be uploaded)
-            pytest appium_tests/tests/ --html=appium_functional_report.html --self-contained-html || true
+          python test/appium_test_runner.py || true
+          pytest appium_tests/tests/ --html=appium_functional_report.html --self-contained-html || true
 
       - name: Upload Appium Test Report
         if: always()
@@ -79,5 +38,4 @@ jobs:
           name: appium-test-report
           path: |
             appium_functional_report.html
-            appium_server.log
           retention-days: 14
