@@ -24,8 +24,8 @@ on:
           - full_system
 
 env:
-  SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://xyczocswufelhpcrmjow.supabase.co' }}
-  SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5Y3pvY3N3dWZlbGhwY3Jtam93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNzM4MzAsImV4cCI6MjA5NTg0OTgzMH0.ceteY6McC6WMg5Ku5ciKQTZsZXnKaM8bDo4qQObZDE8' }}
+  SUPABASE_URL: 'https://xyczocswufelhpcrmjow.supabase.co'
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5Y3pvY3N3dWZlbGhwY3Jtam93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNzM4MzAsImV4cCI6MjA5NTg0OTgzMH0.ceteY6McC6WMg5Ku5ciKQTZsZXnKaM8bDo4qQObZDE8'
 
 jobs:
   load-test:
