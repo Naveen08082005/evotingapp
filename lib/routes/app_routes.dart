@@ -8,6 +8,7 @@ import '../screens/admin/candidate_management_screen.dart';
 import '../screens/admin/election_settings_screen.dart';
 import '../screens/admin/live_results_admin_screen.dart';
 import '../screens/admin/user_management_screen.dart';
+import '../screens/auth/admin_login_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
@@ -28,6 +29,7 @@ class AppRoutes {
   static const String splash = '/';
   static const String onboarding = '/onboarding';
   static const String login = '/login';
+  static const String adminLogin = '/admin/login';
   static const String register = '/register';
   static const String forgotPassword = '/forgot-password';
   static const String verifyEmail = '/verify-email';
@@ -69,6 +71,12 @@ class AppRoutes {
     GetPage(
       name: login,
       page: () => const LoginScreen(),
+      binding: AuthBinding(),
+      transition: Transition.fadeIn,
+    ),
+    GetPage(
+      name: adminLogin,
+      page: () => const AdminLoginScreen(),
       binding: AuthBinding(),
       transition: Transition.fadeIn,
     ),

@@ -169,6 +169,61 @@ class AuthController extends GetxController {
     }
   }
 
+  // ── Admin Login (Strict Admin Access Only) ─────────────────────────────────
+  Future<void> loginAdmin(String email, String password) async {
+    if (_isLockedOut()) {
+      final remaining = _lockedUntil!.difference(DateTime.now()).inMinutes + 1;
+      Get.snackbar(
+        'Too Many Attempts',
+        'Account temporarily locked. Try again in $remaining minute(s).',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    try {
+      isLoading.value = true;
+      errorMessage.value = '';
+
+      final response = await _authService.signIn(email: email, password: password);
+      final userId = response.user?.id;
+      if (userId == null) throw const AppAuthException('Login failed. Invalid response from server.');
+
+      final adminCheck = await _authRepository.isAdmin(userId);
+      if (!adminCheck) {
+        // Sign out non-admin user immediately
+        await _authService.signOut();
+        throw const AppAuthException('Access Denied: Account is not authorized as a system administrator.');
+      }
+
+      _loginAttempts = 0;
+      _lockedUntil = null;
+      isAdmin.value = true;
+
+      Get.offAllNamed(AppRoutes.adminDashboard);
+      Get.snackbar('Welcome Admin', 'Successfully logged in to Administrator Portal.',
+          snackPosition: SnackPosition.BOTTOM);
+    } catch (e) {
+      log('[AuthController] Admin Login Error: $e');
+      _loginAttempts++;
+      if (_loginAttempts >= _maxLoginAttempts) {
+        _lockedUntil = DateTime.now().add(_lockoutDuration);
+      }
+      final msg = e.toString()
+          .replaceAll('Exception: ', '')
+          .replaceAll('AppAuthException: ', '')
+          .replaceAll('DatabaseException: ', '');
+      errorMessage.value = msg.isNotEmpty ? msg : 'Invalid admin credentials or unauthorized access.';
+      Get.snackbar(
+        'Admin Authentication Failed',
+        errorMessage.value,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   // ── Register ───────────────────────────────────────────────────────────────
   Future<void> register({
     required String email,

@@ -7,16 +7,29 @@ class AuthRepository {
   final _client = SupabaseService.client;
 
   // ── Check if user is admin ─────────────────────────────────────────────────
-  /// Queries the `admins` database table to verify if the specified user ID
-  /// exists as a registered administrator.
+  /// Dual verification: Checks `public.admins` table, RPC `is_admin`, and `public.users` role column.
   Future<bool> isAdmin(String userId) async {
     try {
-      final result = await _client
+      final rpcResult = await _client.rpc('is_admin', params: {'lookup_user_id': userId});
+      if (rpcResult == true) return true;
+    } catch (_) {}
+
+    try {
+      final adminRow = await _client
           .from(SupabaseConstants.adminsTable)
           .select('id')
           .eq('id', userId)
           .maybeSingle();
-      return result != null;
+      if (adminRow != null) return true;
+
+      final userRow = await _client
+          .from(SupabaseConstants.usersTable)
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle();
+      if (userRow != null && userRow['role'] == 'admin') return true;
+
+      return false;
     } catch (e) {
       return false;
     }
