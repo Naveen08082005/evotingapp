@@ -43,13 +43,28 @@ class StorageService {
     return false;
   }
 
-  static void _validateImageFile(XFile imageFile, Uint8List bytes) {
-    // Extension check
-    final ext = imageFile.path.split('.').last.toLowerCase();
-    if (!SupabaseConstants.allowedImageExtensions.contains(ext)) {
-      throw const AppStorageException(
-          'Invalid file type. Only JPG, PNG, and WebP images are allowed.');
+  static String _getFileExtension(XFile imageFile, Uint8List bytes) {
+    if (imageFile.name.contains('.')) {
+      final ext = imageFile.name.split('.').last.toLowerCase();
+      if (SupabaseConstants.allowedImageExtensions.contains(ext)) return ext;
     }
+    if (imageFile.path.contains('.')) {
+      final ext = imageFile.path.split('.').last.toLowerCase();
+      if (SupabaseConstants.allowedImageExtensions.contains(ext)) return ext;
+    }
+    if (bytes.length >= 4 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) {
+      return 'jpg';
+    }
+    if (bytes.length >= 4 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
+      return 'png';
+    }
+    if (bytes.length >= 12 && bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46) {
+      return 'webp';
+    }
+    return 'jpg';
+  }
+
+  static void _validateImageFile(XFile imageFile, Uint8List bytes) {
     // File size check
     if (bytes.length > SupabaseConstants.maxUploadSizeBytes) {
       throw const AppStorageException(
@@ -58,7 +73,7 @@ class StorageService {
     // Magic-byte MIME check
     if (!_isAllowedImageType(bytes)) {
       throw const AppStorageException(
-          'File content does not match an allowed image format.');
+          'Invalid file type. Only JPG, PNG, and WebP images are allowed.');
     }
   }
 
@@ -71,7 +86,7 @@ class StorageService {
       final bytes = await imageFile.readAsBytes();
       _validateImageFile(imageFile, bytes);
 
-      final ext = imageFile.path.split('.').last.toLowerCase();
+      final ext = _getFileExtension(imageFile, bytes);
       final fileName =
           'candidate_${candidateId}_${DateTime.now().millisecondsSinceEpoch}.$ext';
       final filePath = 'candidates/$fileName';
@@ -105,7 +120,7 @@ class StorageService {
       final bytes = await imageFile.readAsBytes();
       _validateImageFile(imageFile, bytes);
 
-      final ext = imageFile.path.split('.').last.toLowerCase();
+      final ext = _getFileExtension(imageFile, bytes);
       final fileName =
           'user_${userId}_${DateTime.now().millisecondsSinceEpoch}.$ext';
       final filePath = 'users/$fileName';
