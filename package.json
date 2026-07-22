@@ -1,0 +1,12 @@
+{
+  "name": "evoting_app_load_tests",
+  "version": "1.0.0",
+  "description": "Production-Grade Load Testing Suite for Flutter + Supabase E-Voting System",
+  "scripts": {
+    "test:load": "powershell -ExecutionPolicy Bypass -File ./load-tests/run_load_tests.ps1 -TestName all",
+    "test:load:login": "powershell -ExecutionPolicy Bypass -File ./load-tests/run_load_tests.ps1 -TestName login",
+    "test:load:register": "powershell -ExecutionPolicy Bypass -File ./load-tests/run_load_tests.ps1 -TestName register",
+    "test:load:vote": "powershell -ExecutionPolicy Bypass -File ./load-tests/run_load_tests.ps1 -TestName vote",
+    "test:load:full": "powershell -ExecutionPolicy Bypass -File ./load-tests/run_load_tests.ps1 -TestName full"
+  }
+}

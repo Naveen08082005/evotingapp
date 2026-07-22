@@ -1,6 +1,0 @@
-# Python dependencies for Selenium E2E tests
-selenium
-webdriver-manager
-requests
-pytest
-pytest-html

@@ -33,22 +33,26 @@ class UserModel {
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'] as String,
-      email: json['email'] as String,
-      fullName: json['full_name'] as String,
-      registerNumber: json['register_number'] as String,
-      mobileNumber: json['mobile_number'] as String,
-      department: json['department'] as String,
+      id: json['id'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      fullName: (json['full_name'] ?? json['fullName'] ?? '') as String,
+      registerNumber: (json['register_number'] ?? json['registerNumber'] ?? '') as String,
+      mobileNumber: (json['mobile_number'] ?? json['mobile'] ?? '') as String,
+      department: (json['department'] ?? '') as String,
       year: json['year'] as String?,
       photoUrl: json['photo_url'] as String?,
       role: json['role'] as String? ?? 'student',
       isVerified: json['is_verified'] as bool? ?? false,
       hasVoted: json['has_voted'] as bool? ?? false,
       votedAt: json['voted_at'] != null
-          ? DateTime.parse(json['voted_at'] as String)
+          ? DateTime.tryParse(json['voted_at'] as String)
           : null,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'] as String) ?? DateTime.now()
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.tryParse(json['updated_at'] as String) ?? DateTime.now()
+          : DateTime.now(),
     );
   }
 

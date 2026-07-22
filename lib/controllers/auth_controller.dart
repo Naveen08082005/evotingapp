@@ -107,7 +107,7 @@ class AuthController extends GetxController {
       // ── Real Supabase authentication ───────────────────────────────────────
       final response = await _authService.signIn(email: email, password: password);
       final userId = response.user?.id;
-      if (userId == null) throw Exception('Login failed. Please try again.');
+      if (userId == null) throw const AppAuthException('Login failed. Invalid response from server.');
 
       // Successful login — reset rate limit counter
       _loginAttempts = 0;
@@ -119,21 +119,49 @@ class AuthController extends GetxController {
       if (adminCheck) {
         Get.offAllNamed(AppRoutes.adminDashboard);
       } else {
-        final userData = await _userRepository.getUserById(userId);
+        var userData = await _userRepository.getUserById(userId);
+        if (userData == null && response.user != null) {
+          log('[AuthController] Profile not found in public.users, attempting fallback creation.');
+          final meta = response.user!.userMetadata ?? {};
+          final fallbackModel = UserModel(
+            id: userId,
+            email: email,
+            fullName: meta['full_name'] as String? ?? 'User',
+            registerNumber: meta['register_number'] as String? ?? '',
+            mobileNumber: (meta['mobile_number'] ?? meta['mobile'] ?? '') as String,
+            department: meta['department'] as String? ?? '',
+            year: meta['year'] as String?,
+            photoUrl: meta['photo_url'] as String?,
+            role: 'student',
+            isVerified: true,
+            hasVoted: false,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+          userData = await _userRepository.createUser(fallbackModel);
+        }
+
+        if (userData == null) {
+          throw const AppAuthException('User profile could not be loaded.');
+        }
+
         currentUser.value = userData;
         Get.offAllNamed(AppRoutes.userDashboard);
       }
     } catch (e) {
-      // Increment rate-limit counter on failure
+      log('[AuthController] Login Error: $e');
       _loginAttempts++;
       if (_loginAttempts >= _maxLoginAttempts) {
         _lockedUntil = DateTime.now().add(_lockoutDuration);
       }
-      // Show only a generic message; internal details are NOT exposed
-      errorMessage.value = 'Invalid email or password. Please try again.';
+      final msg = e.toString()
+          .replaceAll('Exception: ', '')
+          .replaceAll('AppAuthException: ', '')
+          .replaceAll('DatabaseException: ', '');
+      errorMessage.value = msg.isNotEmpty ? msg : 'Invalid email or password. Please try again.';
       Get.snackbar(
         'Login Failed',
-        'Invalid email or password. Please try again.',
+        errorMessage.value,
         snackPosition: SnackPosition.BOTTOM,
       );
     } finally {
@@ -206,49 +234,50 @@ class AuthController extends GetxController {
       log('  -> User ID: $userId');
       log('  -> Email: ${response.user?.email}');
       log('  -> Session Active: ${response.session != null}');
-      log('  -> Email Confirmed At: ${response.user?.emailConfirmedAt}');
 
       if (userId == null) {
         throw const AppAuthException('Registration request failed to generate a valid user ID.');
       }
 
-      final isEmailConfirmed = response.user?.emailConfirmedAt != null;
       final hasSession = response.session != null;
 
-      // Case A: Email confirmation is DISABLED in Supabase Dashboard (user is auto-confirmed)
-      if (hasSession && isEmailConfirmed) {
-        log('[AuthController] Email confirmation is disabled in Supabase. User auto-confirmed. Redirecting to dashboard.');
-        final userModel = UserModel(
-          id: userId,
-          email: email,
-          fullName: fullName,
-          registerNumber: registerNumber.trim(),
-          mobileNumber: mobileNumber,
-          department: department,
-          year: year,
-          photoUrl: photoUrl,
-          role: 'student',
-          isVerified: true,
-          hasVoted: false,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
+      // Handle immediate session / auto-confirmation
+      if (hasSession || response.user != null) {
+        log('[AuthController] Registration successful. Fetching/creating profile and navigating to dashboard.');
+        var userModel = await _userRepository.getUserById(userId);
+        if (userModel == null) {
+          final newModel = UserModel(
+            id: userId,
+            email: email,
+            fullName: fullName,
+            registerNumber: registerNumber.trim(),
+            mobileNumber: mobileNumber,
+            department: department,
+            year: year,
+            photoUrl: photoUrl,
+            role: 'student',
+            isVerified: true,
+            hasVoted: false,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+          userModel = await _userRepository.createUser(newModel);
+        }
 
-        final created = await _userRepository.createUser(userModel);
-        currentUser.value = created;
+        currentUser.value = userModel;
         isAdmin.value = false;
 
         Get.offAllNamed(AppRoutes.userDashboard);
         return;
       }
 
-      // Case B: Email confirmation is ENABLED in Supabase Dashboard (verification email sent)
-      log('[AuthController] Verification email sent by Supabase. Redirecting to VerifyEmailScreen for email: $email');
+      // Fallback: If no session was created and email verification is strictly required
+      log('[AuthController] Verification email flow active. Redirecting to VerifyEmailScreen.');
       Get.offAllNamed(AppRoutes.verifyEmail, arguments: {'email': email});
       return;
     } catch (e) {
       log('[AuthController] Registration Error: $e');
-      final msg = e.toString().replaceAll('Exception: ', '').replaceAll('AppAuthException: ', '');
+      final msg = e.toString().replaceAll('Exception: ', '').replaceAll('AppAuthException: ', '').replaceAll('DatabaseException: ', '');
       errorMessage.value = msg.contains('duplicate') || msg.contains('already exists')
           ? 'An account or register number with those details already exists.'
           : msg.isNotEmpty

@@ -26,6 +26,8 @@ flutter_*.png
 *.log
 *.tmp
 *.swp
+*.zip
+~$*
 # Secrets
 .env
 *.key
