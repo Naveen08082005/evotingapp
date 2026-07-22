@@ -47,12 +47,14 @@ class ElectionRepository {
   // ─── Start election ────────────────────────────────────────────────────────
   Future<ElectionModel> startElection(String electionId) async {
     try {
+      final now = DateTime.now().toIso8601String();
       final response = await _client
           .from(SupabaseConstants.electionsTable)
           .update({
             'status': 'active',
-            'started_at': DateTime.now().toIso8601String(),
-            'updated_at': DateTime.now().toIso8601String(),
+            'started_at': now,
+            'start_time': now, // legacy column
+            'updated_at': now,
           })
           .eq('id', electionId)
           .select()
@@ -66,12 +68,14 @@ class ElectionRepository {
   // ─── Stop election ─────────────────────────────────────────────────────────
   Future<ElectionModel> stopElection(String electionId) async {
     try {
+      final now = DateTime.now().toIso8601String();
       final response = await _client
           .from(SupabaseConstants.electionsTable)
           .update({
             'status': 'completed',
-            'ended_at': DateTime.now().toIso8601String(),
-            'updated_at': DateTime.now().toIso8601String(),
+            'ended_at': now,
+            'end_time': now, // legacy column
+            'updated_at': now,
           })
           .eq('id', electionId)
           .select()

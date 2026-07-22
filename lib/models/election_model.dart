@@ -22,20 +22,23 @@ class ElectionModel {
   });
 
   factory ElectionModel.fromJson(Map<String, dynamic> json) {
+    // DB may use either started_at (new) or start_time (legacy) — support both
+    final rawStarted = json['started_at'] ?? json['start_time'];
+    final rawEnded = json['ended_at'] ?? json['end_time'];
+    // updated_at may be null in legacy rows — fall back to created_at
+    final rawUpdated = json['updated_at'] ?? json['created_at'];
     return ElectionModel(
       id: json['id'] as String,
       title: json['title'] as String,
       description: json['description'] as String?,
       status: json['status'] as String? ?? 'pending',
       liveResultsEnabled: json['live_results_enabled'] as bool? ?? false,
-      startedAt: json['started_at'] != null
-          ? DateTime.parse(json['started_at'] as String)
-          : null,
-      endedAt: json['ended_at'] != null
-          ? DateTime.parse(json['ended_at'] as String)
-          : null,
+      startedAt: rawStarted != null ? DateTime.parse(rawStarted as String) : null,
+      endedAt: rawEnded != null ? DateTime.parse(rawEnded as String) : null,
       createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      updatedAt: rawUpdated != null
+          ? DateTime.parse(rawUpdated as String)
+          : DateTime.now(),
     );
   }
 

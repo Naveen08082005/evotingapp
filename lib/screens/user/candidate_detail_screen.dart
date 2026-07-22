@@ -145,7 +145,7 @@ class CandidateDetailScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Text(
-                      candidate.manifesto,
+                      candidate.manifesto ?? 'No manifesto provided.',
                       style: const TextStyle(
                         fontSize: 15,
                         fontFamily: 'Poppins',

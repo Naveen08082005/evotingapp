@@ -4,13 +4,13 @@ class CandidateModel {
   final String position;
   final String department;
   final String? year;
-  final String manifesto;
+  final String? manifesto; // nullable in DB
   final String? photoUrl;
   final String status; // pending, approved, rejected
   final int voteCount;
   final String? addedBy;
   final DateTime createdAt;
-  final DateTime updatedAt;
+  final DateTime? updatedAt; // nullable in DB for older rows
 
   const CandidateModel({
     required this.id,
@@ -18,29 +18,30 @@ class CandidateModel {
     required this.position,
     required this.department,
     this.year,
-    required this.manifesto,
+    this.manifesto,
     this.photoUrl,
     this.status = 'pending',
     this.voteCount = 0,
     this.addedBy,
     required this.createdAt,
-    required this.updatedAt,
+    this.updatedAt,
   });
 
   factory CandidateModel.fromJson(Map<String, dynamic> json) {
+    final rawUpdated = json['updated_at'] ?? json['created_at'];
     return CandidateModel(
       id: json['id'] as String,
       name: json['name'] as String,
       position: json['position'] as String,
-      department: json['department'] as String,
+      department: json['department'] as String? ?? '',
       year: json['year'] as String?,
-      manifesto: json['manifesto'] as String,
+      manifesto: json['manifesto'] as String?,
       photoUrl: json['photo_url'] as String?,
       status: json['status'] as String? ?? 'pending',
       voteCount: json['vote_count'] as int? ?? 0,
       addedBy: json['added_by'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      updatedAt: rawUpdated != null ? DateTime.parse(rawUpdated as String) : null,
     );
   }
 
@@ -57,7 +58,7 @@ class CandidateModel {
       'vote_count': voteCount,
       if (addedBy != null) 'added_by': addedBy,
       'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
+      if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
     };
   }
 

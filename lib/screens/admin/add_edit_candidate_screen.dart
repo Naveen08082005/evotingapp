@@ -47,7 +47,7 @@ class _AddEditCandidateScreenState extends State<AddEditCandidateScreen> {
       _positionCtrl.text = args.position;
       _deptCtrl.text = args.department;
       _yearCtrl.text = args.year ?? '';
-      _manifestoCtrl.text = args.manifesto;
+      _manifestoCtrl.text = args.manifesto ?? '';
     }
   }
 

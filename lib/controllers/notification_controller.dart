@@ -34,8 +34,10 @@ class NotificationController extends GetxController {
       final list = await _notificationRepo.getNotifications(_currentUserId!);
       notifications.value = list;
       _updateUnreadCount();
-    } catch (e) {
-      Get.snackbar('Error', e.toString(), snackPosition: SnackPosition.BOTTOM);
+    } catch (_) {
+      // Silent fail — notifications are non-critical
+      notifications.value = [];
+      unreadCount.value = 0;
     } finally {
       isLoading.value = false;
     }
