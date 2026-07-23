@@ -129,7 +129,7 @@ class AdminDashboardScreen extends StatelessWidget {
                       mainAxisSpacing: 12,
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      childAspectRatio: 1.4,
+                      childAspectRatio: MediaQuery.of(context).size.width > 600 ? 1.4 : 1.25,
                       children: [
                         StatsCard(
                           title: 'Total Students',
