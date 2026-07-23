@@ -123,14 +123,18 @@ class AdminDashboardScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 14),
-                Obx(() => GridView.count(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      childAspectRatio: MediaQuery.of(context).size.width > 600 ? 1.4 : 1.25,
-                      children: [
+                Obx(() {
+                  final width = MediaQuery.of(context).size.width;
+                  final crossAxisCount = width > 1100 ? 6 : (width > 700 ? 3 : 2);
+                  final childAspectRatio = width > 1100 ? 1.6 : (width > 700 ? 1.4 : 1.25);
+                  return GridView.count(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    childAspectRatio: childAspectRatio,
+                    children: [
                         StatsCard(
                           title: 'Total Students',
                           value: '${dashboard.totalUsers}',
@@ -168,7 +172,8 @@ class AdminDashboardScreen extends StatelessWidget {
                           gradient: const [Color(0xFFFF9800), Color(0xFFF57C00)],
                         ),
                       ],
-                    )),
+                    );
+                  }),
                 const SizedBox(height: 28),
 
                 // Live Chart
