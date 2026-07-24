@@ -53,7 +53,6 @@ class ElectionRepository {
           .update({
             'status': 'active',
             'started_at': now,
-            'start_time': now, // legacy column
             'updated_at': now,
           })
           .eq('id', electionId)
@@ -74,7 +73,6 @@ class ElectionRepository {
           .update({
             'status': 'completed',
             'ended_at': now,
-            'end_time': now, // legacy column
             'updated_at': now,
           })
           .eq('id', electionId)
